@@ -1,0 +1,29 @@
+FROM python:3.14-slim
+
+ARG BEETS_VERSION=2.8.0
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \
+    "beets==${BEETS_VERSION}" \
+    flask \
+    gunicorn \
+    pyacoustid \
+    requests \
+    pylast \
+    beautifulsoup4 \
+    Pillow
+
+COPY app.py /app/app.py
+COPY templates /app/templates
+COPY logo.svg /app/logo.svg
+
+RUN mkdir -p /tmp/beetdeck && chmod 1777 /tmp/beetdeck
+
+WORKDIR /app
+EXPOSE 5000
+ENV TMPDIR=/tmp/beetdeck
+
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "-w", "1", "--threads", "4", "--worker-tmp-dir", "/tmp/beetdeck", "app:app"]

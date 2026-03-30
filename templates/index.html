@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>beetDeck</title>
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<style>
+/* ---- Theme variables ---- */
+:root {
+  --bg: #1a1a2e; --bg-card: #16213e; --bg-deep: #0d1b2a; --bg-input: #1a1a2e;
+  --border: #0f3460; --border-light: #1a1a3e;
+  --text: #e0e0e0; --text-muted: #888; --text-dim: #555; --text-faint: #333;
+  --accent: #e94560; --accent-hover: #c73650;
+  --success: #4ecca3; --success-bg: #1b4332; --success-hover-bg: #2d6b4e;
+  --warn: #f0c040; --warn-bg: #3d2c0a;
+  --error-bg: #4a1a1a;
+  --btn-bg: #0f3460;
+  --tag-lyrics-bg: rgba(27,67,50,0.4); --tag-tags-bg: rgba(15,52,96,0.4);
+  --action-group-bg: rgba(15,52,96,0.3);
+  --overlay: rgba(0,0,0,0.9); --overlay-light: rgba(0,0,0,0.85);
+  --card-shadow: rgba(0,0,0,0.4);
+  --spinner-border: #e0e0e0;
+  --lyrics-fade-card: #16213e; --lyrics-fade-deep: #0d1b2a;
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  --bg: #f0f1f5; --bg-card: #ffffff; --bg-deep: #e8eaef; --bg-input: #ffffff;
+  --border: #c8cdd5; --border-light: #e0e3e8;
+  --text: #1a1a2e; --text-muted: #6b7280; --text-dim: #9ca3af; --text-faint: #c8cdd5;
+  --accent: #d6336c; --accent-hover: #b82d5b;
+  --success: #0f9b6e; --success-bg: #e6f7f0; --success-hover-bg: #c3eddb;
+  --warn: #b8860b; --warn-bg: #fdf6e3;
+  --error-bg: #fde8e8;
+  --btn-bg: #e0e3e8;
+  --tag-lyrics-bg: rgba(15,155,110,0.1); --tag-tags-bg: rgba(99,102,241,0.1);
+  --action-group-bg: rgba(0,0,0,0.04);
+  --overlay: rgba(0,0,0,0.6); --overlay-light: rgba(0,0,0,0.5);
+  --card-shadow: rgba(0,0,0,0.1);
+  --spinner-border: #1a1a2e;
+  --lyrics-fade-card: #ffffff; --lyrics-fade-deep: #e8eaef;
+  color-scheme: light;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.5;
+  transition: background 0.2s, color 0.2s;
+}
+a { color: var(--text); text-decoration: none; }
+a:hover { color: var(--accent); }
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 2rem; background: var(--bg-card); border-bottom: 1px solid var(--border);
+}
+header h1 {
+  font-size: 1.4rem; font-weight: 600; color: var(--accent); cursor: pointer;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+header h1 img { height: 1.6rem; width: auto; }
+.header-actions { display: flex; gap: 0.5rem; align-items: center; }
+.btn {
+  padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer;
+  font-size: 0.85rem; font-weight: 500; transition: background 0.2s;
+  background: var(--btn-bg); color: var(--text);
+}
+.btn:hover { background: var(--accent); color: #fff; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-sm { padding: 0.3rem 0.6rem; font-size: 0.75rem; }
+.btn-accent { background: var(--accent); color: #fff; }
+.btn-accent:hover { background: var(--accent-hover); }
+.spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid var(--spinner-border); border-top-color: transparent;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+  margin-right: 6px; vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+main { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+.stats { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; }
+
+/* Theme toggle */
+.theme-toggle {
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-muted); cursor: pointer; font-size: 1rem;
+  padding: 0.3rem 0.5rem; line-height: 1; transition: border-color 0.2s;
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Library list */
+.artist { margin-bottom: 2px; background: var(--bg-card); border-radius: 6px; overflow: hidden; }
+.artist-header {
+  padding: 0.7rem 1rem; cursor: pointer; display: flex;
+  align-items: center; gap: 0.5rem; user-select: none; transition: background 0.15s;
+}
+.artist-header:hover { background: var(--bg-deep); }
+.arrow {
+  display: inline-block; font-size: 0.7rem; color: var(--accent);
+  transition: transform 0.2s; width: 1rem; text-align: center;
+}
+.artist.open .arrow { transform: rotate(90deg); }
+.artist-name { font-weight: 500; }
+.album-count { color: var(--text-dim); font-size: 0.8rem; margin-left: auto; }
+.albums { display: none; padding: 0 1rem 0.5rem 2.5rem; }
+.artist.open .albums { display: block; }
+.album-row {
+  padding: 0.35rem 0; border-bottom: 1px solid var(--bg);
+  font-size: 0.9rem; display: flex; align-items: center; gap: 0.4rem;
+}
+.album-row:last-child { border-bottom: none; }
+.album-link { cursor: pointer; }
+.album-link:hover { color: var(--accent); }
+.album-year { color: var(--text-dim); font-size: 0.8rem; }
+.check { color: var(--success); font-size: 0.8rem; }
+
+/* Album detail */
+.back-link { display: inline-block; margin-bottom: 1rem; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; }
+.back-link:hover { color: var(--accent); }
+.album-header { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; }
+.cover-art {
+  width: 200px; height: 200px; border-radius: 8px; object-fit: cover;
+  background: var(--bg-card); flex-shrink: 0;
+}
+.cover-placeholder {
+  width: 200px; height: 200px; border-radius: 8px; background: var(--bg-card);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-faint); font-size: 3rem; flex-shrink: 0;
+}
+.album-info { flex: 1; }
+.album-info h2 { font-size: 1.3rem; margin-bottom: 0.2rem; }
+.album-info .meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.3rem; }
+.album-info .path { color: var(--text-dim); font-size: 0.75rem; word-break: break-all; margin-top: 0.5rem; }
+.album-actions { display: flex; gap: 0.8rem; margin-top: 0.8rem; flex-wrap: wrap; align-items: center; }
+.action-group {
+  display: flex; gap: 0.4rem; align-items: center;
+  padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--action-group-bg);
+  border: 1px solid var(--border);
+}
+.action-group-label {
+  font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;
+  margin-right: 0.2rem; font-weight: 600;
+}
+
+/* Tracks */
+.track-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.track-table th {
+  text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border);
+  color: var(--text-muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase;
+}
+.track-table td { padding: 0.5rem; border-bottom: 1px solid var(--border-light); }
+.track-table tr:hover { background: var(--bg-card); }
+.track-num { color: var(--text-dim); width: 2rem; }
+.track-length { color: var(--text-muted); width: 4rem; text-align: right; }
+.tag-toggle { cursor: pointer; color: var(--text-muted); font-size: 0.75rem; }
+.tag-toggle:hover { color: var(--accent); }
+.track-actions-cell {
+  display: flex; gap: 0.15rem; align-items: center; justify-content: flex-end;
+}
+.track-action-group {
+  display: inline-flex; gap: 0.1rem; align-items: center;
+  padding: 0.15rem 0.35rem; border-radius: 4px;
+}
+.track-action-group-lyrics { background: var(--tag-lyrics-bg); }
+.track-action-group-tags { background: var(--tag-tags-bg); }
+.track-action-group .tag-toggle { padding: 0.1rem 0.2rem; }
+
+/* Tag panel */
+.tag-panel {
+  background: var(--bg-deep); border-radius: 6px; padding: 0.8rem;
+  margin: 0.3rem 0; font-size: 0.8rem;
+}
+.tag-panel table { width: 100%; }
+.tag-panel td { padding: 0.15rem 0.5rem; vertical-align: top; }
+.tag-panel .tag-key { color: var(--text-muted); width: 140px; }
+.tag-panel .tag-val { word-break: break-all; }
+
+/* Identify */
+.identify-form {
+  background: var(--bg-card); border-radius: 8px; padding: 1rem; margin: 1rem 0;
+}
+.identify-form label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem; }
+.identify-form input {
+  width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--bg-input); color: var(--text);
+  font-size: 0.85rem; margin-bottom: 0.6rem;
+}
+.identify-form input:focus { outline: none; border-color: var(--accent); }
+.identify-form .form-row { display: flex; gap: 0.8rem; }
+.identify-form .form-row > div { flex: 1; }
+
+/* Candidates */
+.candidates { margin: 1rem 0; }
+.candidate {
+  background: var(--bg-card); border-radius: 8px; padding: 0.8rem 1rem;
+  margin-bottom: 0.5rem; cursor: pointer; border: 2px solid transparent;
+  transition: border-color 0.15s;
+}
+.candidate:hover { border-color: var(--border); }
+.candidate.selected { border-color: var(--accent); }
+.candidate .c-title { font-weight: 500; }
+.candidate .c-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; }
+.candidate .c-dist {
+  display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px;
+  font-size: 0.75rem; font-weight: 600;
+}
+.dist-good { background: var(--success-bg); color: var(--success); }
+.dist-ok { background: var(--warn-bg); color: var(--warn); }
+.dist-bad { background: var(--error-bg); color: var(--accent); }
+
+/* Diff */
+.diff-section { margin: 1rem 0; }
+.diff-section h3 { font-size: 0.95rem; margin-bottom: 0.5rem; }
+.diff-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.diff-table th {
+  text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border);
+  color: var(--text-muted); font-size: 0.75rem;
+}
+.diff-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border-light); }
+.diff-changed { color: var(--accent); }
+.diff-same { color: var(--text-dim); }
+
+/* Search */
+.search-box {
+  position: relative; display: flex; align-items: center;
+}
+.search-box input {
+  padding: 0.4rem 0.7rem 0.4rem 2rem; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg-input); color: var(--text);
+  font-size: 0.85rem; width: 220px; transition: border-color 0.2s, width 0.2s;
+}
+.search-box input:focus { outline: none; border-color: var(--accent); width: 300px; }
+.search-box::before {
+  content: '⌕'; position: absolute; left: 0.6rem; color: var(--text-dim);
+  font-size: 1rem; pointer-events: none;
+}
+.search-box .search-clear {
+  position: absolute; right: 0.5rem; background: none; border: none;
+  color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 0; line-height: 1;
+  display: none;
+}
+.search-box .search-clear:hover { color: var(--accent); }
+.search-results { margin-bottom: 1.5rem; }
+.search-results h3 {
+  font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.05em; margin: 0.8rem 0 0.4rem; font-weight: 500;
+}
+.search-item {
+  padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer;
+  font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;
+  transition: background 0.15s;
+}
+.search-item:hover { background: var(--bg-card); }
+.search-item .si-main { font-weight: 500; }
+.search-item .si-sub { color: var(--text-dim); font-size: 0.8rem; }
+.search-no-results { color: var(--text-dim); font-size: 0.85rem; padding: 1rem 0; }
+
+/* Filter bar */
+.filter-bar { display: flex; gap: 0.3rem; align-items: center; margin-bottom: 1rem; }
+.filter-bar .filter-label { font-size: 0.75rem; color: var(--text-dim); margin-right: 0.3rem; }
+.filter-btn {
+  padding: 0.3rem 0.7rem; border: 1px solid var(--border); border-radius: 6px;
+  background: transparent; color: var(--text-muted); font-size: 0.78rem; cursor: pointer;
+  transition: all 0.15s;
+}
+.filter-btn:hover { border-color: var(--accent); color: var(--text); }
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Artist page */
+.artist-page-header { margin-bottom: 1.5rem; }
+.artist-page-header h2 { font-size: 1.4rem; margin-bottom: 0.2rem; }
+.artist-page-header .meta { color: var(--text-muted); font-size: 0.85rem; }
+.album-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1.2rem;
+}
+.album-card {
+  background: var(--bg-card); border-radius: 8px; overflow: hidden;
+  cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+}
+.album-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px var(--card-shadow); }
+.album-card-cover {
+  width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--btn-bg);
+}
+.album-card-nocover {
+  width: 100%; aspect-ratio: 1; display: flex; align-items: center;
+  justify-content: center; background: var(--btn-bg); color: var(--text-faint); font-size: 2.5rem;
+}
+.album-card-info { padding: 0.6rem 0.7rem; }
+.album-card-title {
+  font-size: 0.85rem; font-weight: 500; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.album-card-year { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.1rem; }
+.album-card-badges { display: flex; gap: 0.3rem; margin-top: 0.2rem; }
+
+.loading { text-align: center; padding: 3rem; color: var(--text-dim); }
+.error { text-align: center; padding: 2rem; color: var(--accent); }
+
+/* Cover thumbnails in library list */
+.album-thumb {
+  width: 28px; height: 28px; border-radius: 4px; object-fit: cover;
+  flex-shrink: 0; background: var(--btn-bg);
+}
+.album-thumb-empty {
+  width: 28px; height: 28px; border-radius: 4px; background: var(--btn-bg);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-faint); font-size: 0.7rem; flex-shrink: 0;
+}
+
+/* Clickable cover on album page */
+.cover-art { cursor: pointer; }
+
+/* Lightbox */
+.lightbox {
+  position: fixed; inset: 0; z-index: 1000; background: var(--overlay);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.lightbox img {
+  max-width: 90vw; max-height: 90vh; border-radius: 8px; object-fit: contain;
+}
+
+/* Cover actions */
+.cover-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+.upload-label {
+  padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer;
+  font-size: 0.85rem; font-weight: 500; background: var(--btn-bg); color: var(--text);
+  transition: background 0.2s; display: inline-block;
+}
+.upload-label:hover { background: var(--accent); color: #fff; }
+
+/* Lyrics */
+.lyrics-popup {
+  position: fixed; inset: 0; z-index: 1000; background: var(--overlay-light);
+  display: flex; align-items: center; justify-content: center; padding: 2rem;
+}
+.lyrics-popup-content {
+  background: var(--bg-card); border-radius: 12px; max-width: 700px; width: 100%;
+  max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.lyrics-popup-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1rem 1.2rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.lyrics-popup-header h3 { font-size: 1rem; font-weight: 500; }
+.lyrics-popup-close {
+  background: none; border: none; color: var(--text-muted); font-size: 1.5rem;
+  cursor: pointer; padding: 0 0.3rem; line-height: 1;
+}
+.lyrics-popup-close:hover { color: var(--accent); }
+.lyrics-popup-body {
+  padding: 1.2rem; overflow-y: auto; flex: 1;
+}
+.lyrics-text {
+  white-space: pre-wrap; word-wrap: break-word; font-size: 0.85rem;
+  line-height: 1.7; color: var(--text); font-family: inherit;
+}
+.lyrics-text .lrc-timestamp {
+  color: var(--text-dim); font-size: 0.75rem; margin-right: 0.4rem;
+  font-family: monospace;
+}
+.lyrics-preview {
+  white-space: pre-wrap; word-wrap: break-word; font-size: 0.8rem;
+  line-height: 1.6; color: var(--text-muted); max-height: 120px; overflow: hidden;
+  position: relative; cursor: pointer;
+}
+.lyrics-preview::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+  height: 40px; background: linear-gradient(transparent, var(--lyrics-fade-card));
+  pointer-events: none;
+}
+.lyrics-preview-inline {
+  white-space: pre-wrap; word-wrap: break-word; font-size: 0.8rem;
+  line-height: 1.6; color: var(--text-muted); max-height: 150px; overflow: hidden;
+  position: relative; cursor: pointer; padding: 0.3rem 0;
+}
+.lyrics-preview-inline::after {
+  content: 'click to expand'; position: absolute; bottom: 0; left: 0; right: 0;
+  height: 40px; background: linear-gradient(transparent, var(--lyrics-fade-deep));
+  pointer-events: none; display: flex; align-items: flex-end;
+  justify-content: center; font-size: 0.65rem; color: var(--text-dim); padding-bottom: 2px;
+}
+.lrc-badge {
+  display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px;
+  font-size: 0.7rem; font-weight: 600; background: var(--warn-bg); color: var(--warn);
+  margin-bottom: 0.5rem;
+}
+.lyrics-source-badge {
+  display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px;
+  font-size: 0.7rem; font-weight: 600; background: var(--success-bg); color: var(--success);
+}
+.lyrics-result-item {
+  background: var(--bg-deep); border-radius: 8px; padding: 0.8rem 1rem;
+  margin-bottom: 0.5rem;
+}
+.lyrics-result-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 0.4rem;
+}
+.lyrics-result-title { font-size: 0.85rem; font-weight: 500; }
+.lyrics-result-meta { font-size: 0.75rem; color: var(--text-muted); }
+.lyrics-diff {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;
+}
+.lyrics-diff-col h4 {
+  font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;
+  margin-bottom: 0.3rem; font-weight: 500;
+}
+.btn-lyrics { background: var(--success-bg); color: var(--success); }
+.btn-lyrics:hover { background: var(--success-hover-bg); }
+.track-lyrics-actions {
+  display: inline-flex; gap: 0.3rem; align-items: center;
+}
+</style>
+</head>
+<body>
+<header>
+  <h1 onclick="navigate('')"><img src="/logo.svg" alt="">beetDeck</h1>
+  <div class="header-actions">
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="Search…" oninput="onSearchInput(this.value)" onkeydown="if(event.key==='Escape'){clearSearch()}">
+      <button class="search-clear" id="search-clear" onclick="clearSearch()">×</button>
+    </div>
+    <button class="btn" id="rescan-quick" onclick="doRescan('quick')">Quick Scan</button>
+    <button class="btn" id="rescan-full" onclick="doRescan('full')">Full Scan</button>
+    <button class="theme-toggle" id="theme-toggle" onclick="cycleTheme()" title="Theme"></button>
+  </div>
+</header>
+<main>
+  <div id="app"><div class="loading">Loading…</div></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+
+/* ---- Theme ---- */
+// mode: 'auto' | 'dark' | 'light'
+let _themeMode = localStorage.getItem('theme') || 'auto';
+
+function applyTheme() {
+  let effective;
+  if (_themeMode === 'auto') {
+    effective = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  } else {
+    effective = _themeMode;
+  }
+  document.documentElement.setAttribute('data-theme', effective);
+  const icons = { auto: '\u25D0', light: '\u2600', dark: '\u263E' };
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = icons[_themeMode];
+}
+
+function cycleTheme() {
+  const order = ['auto', 'light', 'dark'];
+  _themeMode = order[(order.indexOf(_themeMode) + 1) % 3];
+  localStorage.setItem('theme', _themeMode);
+  applyTheme();
+}
+
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+  if (_themeMode === 'auto') applyTheme();
+});
+
+applyTheme();
+
+/* ---- Routing ---- */
+function navigate(hash) {
+  location.hash = hash;
+}
+
+window.addEventListener("hashchange", route);
+
+function route() {
+  const h = location.hash.slice(1);
+  if (h.startsWith("album/")) {
+    const id = parseInt(h.split("/")[1]);
+    if (id) loadAlbum(id);
+  } else if (h.startsWith("artist/")) {
+    const name = decodeURIComponent(h.slice(7));
+    if (name) loadArtist(name);
+  } else {
+    loadLibrary();
+  }
+}
+
+/* ---- Escape ---- */
+function esc(s) {
+  if (s === null || s === undefined) return "";
+  const d = document.createElement("div");
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+/* ---- Filter ---- */
+let _tagFilter = 'all'; // 'all' | 'tagged' | 'untagged'
+
+function setFilter(val) {
+  _tagFilter = val;
+  // re-render current view
+  route();
+}
+
+function filterBarHtml() {
+  const opts = [['all','All'],['tagged','Identified'],['untagged','Not identified']];
+  return `<div class="filter-bar">
+    <span class="filter-label">Show:</span>
+    ${opts.map(([v,l]) =>
+      `<button class="filter-btn${_tagFilter===v?' active':''}" onclick="setFilter('${v}')">${l}</button>`
+    ).join('')}
+  </div>`;
+}
+
+function filterAlbums(albums) {
+  if (_tagFilter === 'all') return albums;
+  return albums.filter(al => _tagFilter === 'tagged' ? al.tagged : !al.tagged);
+}
+
+/* ---- Library ---- */
+let _libraryCache = null;
+
+async function loadLibrary() {
+  if (_libraryCache) { renderLibrary(_libraryCache); return; }
+  $("#app").innerHTML = '<div class="loading">Loading library…</div>';
+  try {
+    const r = await fetch("/api/library");
+    if (!r.ok) throw new Error(r.statusText);
+    _libraryCache = await r.json();
+    renderLibrary(_libraryCache);
+  } catch (e) {
+    $("#app").innerHTML = `<div class="error">Failed to load: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderLibrary(artists) {
+  // Apply filter per artist
+  const filtered = artists.map(a => ({...a, albums: filterAlbums(a.albums)}))
+    .filter(a => a.albums.length > 0);
+  const total = filtered.reduce((s, a) => s + a.albums.length, 0);
+  let html = filterBarHtml();
+  html += `<div class="stats">${filtered.length} artists · ${total} albums</div>`;
+  html += filtered.map(a => `
+    <div class="artist">
+      <div class="artist-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="arrow">▶</span>
+        <a class="artist-name" href="#artist/${encodeURIComponent(a.artist)}" onclick="event.stopPropagation()">${esc(a.artist)}</a>
+        <span class="album-count">${a.albums.length}</span>
+      </div>
+      <div class="albums">
+        ${a.albums.map(al => `
+          <div class="album-row">
+            ${al.has_cover
+              ? `<img class="album-thumb" src="/api/album/${al.id}/cover" loading="lazy" alt="">`
+              : '<div class="album-thumb-empty">♪</div>'}
+            ${al.tagged ? '<span class="check">✓</span>' : ''}
+            <a class="album-link" href="#album/${al.id}">${esc(al.album)}</a>
+            ${al.year ? `<span class="album-year">${al.year}</span>` : ""}
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+  $("#app").innerHTML = html;
+}
+
+/* ---- Search ---- */
+let _searchTimer = null;
+let _lastSearchQuery = '';
+
+function onSearchInput(val) {
+  const q = val.trim();
+  document.getElementById('search-clear').style.display = q ? 'block' : 'none';
+  clearTimeout(_searchTimer);
+  if (!q) {
+    _lastSearchQuery = '';
+    // restore current view
+    route();
+    return;
+  }
+  _searchTimer = setTimeout(() => doSearch(q), 250);
+}
+
+function clearSearch() {
+  const input = document.getElementById('search-input');
+  input.value = '';
+  document.getElementById('search-clear').style.display = 'none';
+  _lastSearchQuery = '';
+  route();
+}
+
+async function doSearch(q) {
+  if (q === _lastSearchQuery) return;
+  _lastSearchQuery = q;
+  try {
+    const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+    if (!r.ok) throw new Error(r.statusText);
+    const data = await r.json();
+    // only render if query hasn't changed while fetching
+    if (q !== _lastSearchQuery) return;
+    renderSearchResults(data, q);
+  } catch (e) {
+    $("#app").innerHTML = `<div class="error">Search failed: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderSearchResults(data, q) {
+  const total = data.artists.length + data.albums.length + data.tracks.length;
+  if (!total) {
+    $("#app").innerHTML = `<div class="search-no-results">No results for "${esc(q)}"</div>`;
+    return;
+  }
+  let html = '<div class="search-results">';
+
+  if (data.artists.length) {
+    html += `<h3>Artists (${data.artists.length})</h3>`;
+    data.artists.forEach(name => {
+      html += `<div class="search-item" data-artist="${esc(name)}" onclick="goToArtist(this.dataset.artist)">
+        <span class="si-main">${highlight(name, q)}</span>
+      </div>`;
+    });
+  }
+
+  if (data.albums.length) {
+    html += `<h3>Albums (${data.albums.length})</h3>`;
+    data.albums.forEach(al => {
+      html += `<div class="search-item" onclick="clearSearch(); navigate('album/${al.id}')">
+        ${al.has_cover
+          ? `<img class="album-thumb" src="/api/album/${al.id}/cover" loading="lazy" alt="">`
+          : '<div class="album-thumb-empty">♪</div>'}
+        <span class="si-main">${highlight(al.album, q)}</span>
+        <span class="si-sub">${esc(al.albumartist)}${al.year ? ' · ' + al.year : ''}</span>
+      </div>`;
+    });
+  }
+
+  if (data.tracks.length) {
+    html += `<h3>Tracks (${data.tracks.length})</h3>`;
+    data.tracks.forEach(t => {
+      html += `<div class="search-item" onclick="clearSearch(); navigate('album/${t.album_id}')">
+        <span class="si-main">${highlight(t.title, q)}</span>
+        <span class="si-sub">${esc(t.artist)} — ${esc(t.album)}</span>
+      </div>`;
+    });
+  }
+
+  html += '</div>';
+  $("#app").innerHTML = html;
+}
+
+function highlight(text, q) {
+  if (!q) return esc(text);
+  const escaped = esc(text);
+  const qEsc = esc(q);
+  const re = new RegExp('(' + qEsc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+  return escaped.replace(re, '<span style="color:#e94560;font-weight:600">$1</span>');
+}
+
+function goToArtist(name) {
+  clearSearch();
+  navigate('artist/' + encodeURIComponent(name));
+}
+
+/* ---- Artist page ---- */
+let _artistCache = {};
+
+async function loadArtist(name) {
+  if (_artistCache[name]) { renderArtist(_artistCache[name]); return; }
+  $("#app").innerHTML = '<div class="loading">Loading artist…</div>';
+  try {
+    const r = await fetch(`/api/artist?name=${encodeURIComponent(name)}`);
+    if (!r.ok) throw new Error(r.statusText);
+    _artistCache[name] = await r.json();
+    renderArtist(_artistCache[name]);
+  } catch (e) {
+    $("#app").innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+function renderArtist(data) {
+  const albums = filterAlbums(data.albums);
+  let html = `
+    <span class="back-link" onclick="navigate('')">← Library</span>
+    <div class="artist-page-header">
+      <h2>${esc(data.artist)}</h2>
+      <div class="meta">${albums.length} album${albums.length !== 1 ? 's' : ''}</div>
+    </div>
+    ${filterBarHtml()}
+    <div class="album-grid">
+      ${albums.map(al => `
+        <a class="album-card" href="#album/${al.id}">
+          ${al.has_cover
+            ? `<img class="album-card-cover" src="/api/album/${al.id}/cover" loading="lazy" alt="">`
+            : '<div class="album-card-nocover">♪</div>'}
+          <div class="album-card-info">
+            <div class="album-card-title" title="${esc(al.album)}">${esc(al.album)}</div>
+            <div class="album-card-year">${al.year || ''}</div>
+            <div class="album-card-badges">
+              ${al.tagged ? '<span class="check">✓</span>' : ''}
+            </div>
+          </div>
+        </a>
+      `).join("")}
+    </div>`;
+  $("#app").innerHTML = html;
+}
+
+/* ---- Album detail ---- */
+let _albumData = null;
+
+async function loadAlbum(id) {
+  $("#app").innerHTML = '<div class="loading">Loading album…</div>';
+  try {
+    const r = await fetch(`/api/album/${id}`);
+    if (!r.ok) throw new Error(r.statusText);
+    _albumData = await r.json();
+    renderAlbum(_albumData);
+  } catch (e) {
+    $("#app").innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+function renderAlbum(a) {
+  const coverHtml = a.has_cover
+    ? `<img class="cover-art" src="/api/album/${a.id}/cover" alt="Cover" onclick="openLightbox('/api/album/${a.id}/cover')">`
+    : `<div class="cover-placeholder">♪</div>`;
+
+  let html = `
+    <span class="back-link" onclick="navigate('')">← Library</span>
+    <span class="back-link" onclick="navigate('artist/${encodeURIComponent(a.albumartist)}')" style="margin-left:1rem">← ${esc(a.albumartist)}</span>
+    <div class="album-header">
+      ${coverHtml}
+      <div class="album-info">
+        <h2>${esc(a.album)} ${a.tagged ? '<span class="check">✓</span>' : ''}</h2>
+        <div class="meta"><a href="#artist/${encodeURIComponent(a.albumartist)}">${esc(a.albumartist)}</a>${a.year ? ` · ${a.year}` : ''}</div>
+        ${a.genre ? `<div class="meta">${esc(a.genre)}</div>` : ''}
+        ${a.label ? `<div class="meta">${esc(a.label)}</div>` : ''}
+        ${a.mb_albumid ? `<div class="meta">MB: <a href="https://musicbrainz.org/release/${esc(a.mb_albumid)}" target="_blank" rel="noopener">${esc(a.mb_albumid)}</a></div>` : ''}
+        <div class="path">${esc(a.path)}</div>
+        <div class="album-actions">
+          <div class="action-group">
+            <span class="action-group-label">Tags</span>
+            <button class="btn btn-sm" onclick="toggleIdentify(${a.id})">Identify</button>
+            <button class="btn btn-sm" id="genre-btn" onclick="fetchGenrePreview(${a.id})">Fetch Genre</button>
+          </div>
+          <div class="action-group">
+            <span class="action-group-label">Cover</span>
+            <button class="btn btn-sm" id="cover-fetch-btn" onclick="fetchCover(${a.id})">Fetch</button>
+            <label class="upload-label btn-sm" style="padding:0.3rem 0.6rem;font-size:0.75rem">Upload<input type="file" accept="image/*" style="display:none" onchange="uploadCover(${a.id}, this.files[0])"></label>
+          </div>
+          <div class="action-group">
+            <span class="action-group-label">Lyrics</span>
+            <button class="btn btn-sm" id="lyrics-btn" onclick="fetchAlbumLyrics(${a.id})">Fetch All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="genre-area"></div>
+    <div id="cover-area"></div>
+    <div id="lyrics-area"></div>
+    <div id="identify-area"></div>
+    <table class="track-table">
+      <thead><tr>
+        <th>#</th><th>Title</th><th>Artist</th><th style="text-align:right">Duration</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${a.tracks.map(t => `
+          <tr>
+            <td class="track-num">${t.disc > 1 ? t.disc + '-' : ''}${t.track}</td>
+            <td>${esc(t.title)}</td>
+            <td style="color:#888">${esc(t.artist)}</td>
+            <td class="track-length">${t.length}</td>
+            <td>
+              <div class="track-actions-cell">
+                <span class="track-action-group track-action-group-lyrics">
+                  <span class="tag-toggle" onclick="toggleTrackLyrics(${a.id}, ${t.id})">lyrics</span>
+                </span>
+                <span class="track-action-group track-action-group-tags">
+                  <span class="tag-toggle" onclick="toggleTags(${a.id}, ${t.id}, this)">tags</span>
+                </span>
+              </div>
+            </td>
+          </tr>
+          <tr class="tag-row" id="lyrics-${t.id}" style="display:none">
+            <td colspan="5"><div class="tag-panel" id="lyrics-panel-${t.id}">Loading…</div></td>
+          </tr>
+          <tr class="tag-row" id="tags-${t.id}" style="display:none">
+            <td colspan="5"><div class="tag-panel" id="tag-panel-${t.id}">Loading…</div></td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+  $("#app").innerHTML = html;
+}
+
+/* ---- Track tags ---- */
+async function toggleTags(albumId, trackId, el) {
+  const row = $(`#tags-${trackId}`);
+  if (row.style.display !== "none") {
+    row.style.display = "none";
+    return;
+  }
+  row.style.display = "";
+  const panel = $(`#tag-panel-${trackId}`);
+  try {
+    const r = await fetch(`/api/album/${albumId}/track/${trackId}/tags`);
+    const tags = await r.json();
+    let t = '<table>';
+    for (const [k, v] of Object.entries(tags)) {
+      t += `<tr><td class="tag-key">${esc(k)}</td><td class="tag-val">${esc(v)}</td></tr>`;
+    }
+    t += '</table>';
+    panel.innerHTML = t;
+  } catch (e) {
+    panel.innerHTML = `<span class="error">${esc(e.message)}</span>`;
+  }
+}
+
+/* ---- Identify ---- */
+let _identifyShown = false;
+let _identifyPoll = null;
+let _selectedCandidate = null;
+
+function toggleIdentify(albumId) {
+  const area = $("#identify-area");
+  if (_identifyShown) {
+    area.innerHTML = "";
+    _identifyShown = false;
+    return;
+  }
+  _identifyShown = true;
+  _selectedCandidate = null;
+  area.innerHTML = `
+    <div class="identify-form">
+      <div class="form-row">
+        <div>
+          <label>Artist (optional)</label>
+          <input id="id-artist" placeholder="Override artist search">
+        </div>
+        <div>
+          <label>Album (optional)</label>
+          <input id="id-album" placeholder="Override album search">
+        </div>
+      </div>
+      <label>MusicBrainz Release ID (optional)</label>
+      <input id="id-mbid" placeholder="e.g. 12345678-1234-1234-1234-123456789abc">
+      <button class="btn btn-accent" onclick="startIdentify(${albumId})">Search</button>
+    </div>
+    <div id="identify-results"></div>
+  `;
+}
+
+async function startIdentify(albumId) {
+  const results = $("#identify-results");
+  results.innerHTML = '<div class="loading"><span class="spinner"></span> Searching sources…</div>';
+
+  const body = {
+    artist: $("#id-artist").value.trim(),
+    album: $("#id-album").value.trim(),
+    search_id: $("#id-mbid").value.trim(),
+  };
+
+  try {
+    const r = await fetch(`/api/album/${albumId}/identify`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    await r.json();
+    _identifyPoll = setInterval(() => pollIdentify(albumId), 2000);
+  } catch (e) {
+    results.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+async function pollIdentify(albumId) {
+  try {
+    const r = await fetch(`/api/album/${albumId}/identify/status`);
+    const d = await r.json();
+    if (d.status === "running") return;
+    clearInterval(_identifyPoll);
+    if (d.status === "error") {
+      $("#identify-results").innerHTML = `<div class="error">${esc(d.error)}</div>`;
+      return;
+    }
+    renderCandidates(albumId, d.candidates || []);
+  } catch {
+    clearInterval(_identifyPoll);
+  }
+}
+
+function distClass(d) {
+  if (d <= 0.1) return "dist-good";
+  if (d <= 0.3) return "dist-ok";
+  return "dist-bad";
+}
+
+function renderCandidates(albumId, candidates) {
+  if (!candidates.length) {
+    $("#identify-results").innerHTML = '<div class="loading">No matches found</div>';
+    return;
+  }
+  _selectedCandidate = null;
+  let html = '<div class="candidates">';
+  html += candidates.map(c => `
+    <div class="candidate" id="cand-${c.index}" onclick="selectCandidate(${c.index})">
+      <div class="c-title">${esc(c.artist)} — ${esc(c.album)}</div>
+      <div class="c-meta">
+        <span class="c-dist ${distClass(c.distance)}">${(100 - c.distance * 100).toFixed(1)}%</span>
+        ${c.year ? `· ${c.year}` : ''}
+        ${c.media ? `· ${esc(c.media)}` : ''}
+        · ${c.track_count} tracks
+        · ${esc(c.data_source)}
+        ${c.mb_albumid ? `· <a href="https://musicbrainz.org/release/${esc(c.mb_albumid)}" target="_blank" rel="noopener" style="color:#555" onclick="event.stopPropagation()">${esc(c.mb_albumid)}</a>` : ''}
+      </div>
+    </div>
+  `).join("");
+  html += `<button class="btn btn-accent" id="apply-btn" onclick="applyMatch(${albumId})" disabled>Apply Selected</button>`;
+  html += '</div><div id="diff-area"></div>';
+  $("#identify-results").innerHTML = html;
+}
+
+function selectCandidate(idx) {
+  document.querySelectorAll(".candidate").forEach(el => el.classList.remove("selected"));
+  const el = $(`#cand-${idx}`);
+  if (el) el.classList.add("selected");
+  _selectedCandidate = idx;
+  const btn = $("#apply-btn");
+  if (btn) btn.disabled = false;
+}
+
+async function applyMatch(albumId) {
+  if (_selectedCandidate === null) return;
+  const diffArea = $("#diff-area");
+  diffArea.innerHTML = '<div class="loading"><span class="spinner"></span> Computing diff…</div>';
+
+  try {
+    const r = await fetch(`/api/album/${albumId}/apply`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({candidate_index: _selectedCandidate}),
+    });
+    const diff = await r.json();
+    if (diff.error) {
+      diffArea.innerHTML = `<div class="error">${esc(diff.error)}</div>`;
+      return;
+    }
+    renderDiff(albumId, diff);
+  } catch (e) {
+    diffArea.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+function renderDiff(albumId, diff) {
+  let html = '<div class="diff-section"><h3>Album Changes</h3>';
+  html += '<table class="diff-table"><thead><tr><th>Field</th><th>Current</th><th>New</th></tr></thead><tbody>';
+  for (const [field, vals] of Object.entries(diff.album)) {
+    const changed = String(vals.old) !== String(vals.new);
+    const cls = changed ? "diff-changed" : "diff-same";
+    html += `<tr>
+      <td>${esc(field)}</td>
+      <td class="${cls}">${esc(vals.old)}</td>
+      <td class="${cls}">${esc(vals.new)}</td>
+    </tr>`;
+  }
+  html += '</tbody></table></div>';
+
+  html += '<div class="diff-section"><h3>Track Changes</h3>';
+  html += '<table class="diff-table"><thead><tr><th>#</th><th>Field</th><th>Current</th><th>New</th></tr></thead><tbody>';
+  for (const t of diff.tracks) {
+    for (const field of ["title", "artist"]) {
+      const vals = t[field];
+      if (!vals) continue;
+      const changed = String(vals.old) !== String(vals.new);
+      const cls = changed ? "diff-changed" : "diff-same";
+      html += `<tr>
+        <td>${t.track}</td>
+        <td>${esc(field)}</td>
+        <td class="${cls}">${esc(vals.old)}</td>
+        <td class="${cls}">${esc(vals.new)}</td>
+      </tr>`;
+    }
+  }
+  html += '</tbody></table></div>';
+  html += `<button class="btn btn-accent" onclick="confirmMatch(${albumId}, ${diff.candidate_index})">Confirm & Write Tags</button>`;
+
+  $("#diff-area").innerHTML = html;
+}
+
+async function confirmMatch(albumId, candidateIndex) {
+  const diffArea = $("#diff-area");
+  try {
+    const r = await fetch(`/api/album/${albumId}/confirm`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({candidate_index: candidateIndex}),
+    });
+    const d = await r.json();
+    if (d.error) {
+      diffArea.innerHTML += `<div class="error">${esc(d.error)}</div>`;
+      return;
+    }
+    diffArea.innerHTML = '<div style="color:#4ecca3;padding:1rem;text-align:center">✓ Tags written successfully</div>';
+    _identifyShown = false;
+    setTimeout(() => loadAlbum(albumId), 1000);
+  } catch (e) {
+    diffArea.innerHTML += `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+/* ---- Rescan ---- */
+let _rescanPoll = null;
+
+function _setScanButtons(disabled, html) {
+  for (const id of ['#rescan-quick', '#rescan-full']) {
+    const b = $(id);
+    b.disabled = disabled;
+    if (html) b.innerHTML = html;
+  }
+}
+
+async function doRescan(mode) {
+  _setScanButtons(true);
+  const label = mode === 'full' ? 'Full' : 'Quick';
+  const active = mode === 'full' ? $('#rescan-full') : $('#rescan-quick');
+  active.innerHTML = `<span class="spinner"></span>${label}…`;
+  try {
+    await fetch(`/api/rescan?mode=${mode}`, { method: "POST" });
+    _rescanPoll = setInterval(pollRescan, 3000);
+  } catch {
+    _setScanButtons(false);
+    $('#rescan-quick').textContent = 'Quick Scan';
+    $('#rescan-full').textContent = 'Full Scan';
+  }
+}
+
+async function pollRescan() {
+  try {
+    const r = await fetch("/api/rescan/status");
+    const d = await r.json();
+    if (d.status !== "running") {
+      clearInterval(_rescanPoll);
+      _setScanButtons(false);
+      $('#rescan-quick').textContent = 'Quick Scan';
+      $('#rescan-full').textContent = 'Full Scan';
+      _libraryCache = null; _artistCache = {};
+      if (!location.hash || location.hash === "#") loadLibrary();
+    }
+  } catch {}
+}
+
+/* ---- Genre ---- */
+async function fetchGenrePreview(albumId) {
+  const btn = $("#genre-btn");
+  const area = $("#genre-area");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Querying Last.fm…';
+
+  try {
+    const r = await fetch(`/api/album/${albumId}/genre`, { method: "POST" });
+    const d = await r.json();
+    btn.textContent = "Fetch Genre";
+    btn.disabled = false;
+
+    if (d.error) {
+      area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+      return;
+    }
+
+    if (!d.new_genre) {
+      area.innerHTML = '<div class="identify-form" style="padding:0.8rem">No genre found on Last.fm</div>';
+      return;
+    }
+
+    const changed = d.old_genre !== d.new_genre;
+    area.innerHTML = `
+      <div class="identify-form">
+        <table class="diff-table">
+          <thead><tr><th>Field</th><th>Current</th><th>New</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>genre</td>
+              <td class="${changed ? 'diff-changed' : 'diff-same'}">${esc(d.old_genre) || '<em style="color:#555">empty</em>'}</td>
+              <td class="${changed ? 'diff-changed' : 'diff-same'}">${esc(d.new_genre)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top:0.8rem;display:flex;gap:0.5rem">
+          <button class="btn btn-accent" onclick="confirmGenre(${albumId})">Confirm & Write</button>
+          <button class="btn" onclick="$('#genre-area').innerHTML=''">Cancel</button>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    btn.textContent = "Fetch Genre";
+    btn.disabled = false;
+    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+async function confirmGenre(albumId) {
+  const area = $("#genre-area");
+  area.querySelector(".btn-accent").disabled = true;
+  area.querySelector(".btn-accent").innerHTML = '<span class="spinner"></span>Writing…';
+
+  try {
+    const r = await fetch(`/api/album/${albumId}/genre/confirm`, { method: "POST" });
+    const d = await r.json();
+    if (d.error) {
+      area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+      return;
+    }
+    area.innerHTML = `<div style="color:#4ecca3;padding:0.8rem">✓ Genre set to: ${esc(d.genre)}</div>`;
+    setTimeout(() => loadAlbum(albumId), 1500);
+  } catch (e) {
+    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+/* ---- Cover Art ---- */
+async function fetchCover(albumId) {
+  const btn = $("#cover-fetch-btn");
+  const area = $("#cover-area");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Searching…';
+
+  try {
+    const r = await fetch(`/api/album/${albumId}/cover/fetch`, { method: "POST" });
+    const d = await r.json();
+    btn.textContent = "Fetch Cover";
+    btn.disabled = false;
+
+    if (d.error) {
+      area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+      return;
+    }
+
+    if (!d.found) {
+      area.innerHTML = '<div class="identify-form" style="padding:0.8rem">No cover art found</div>';
+      return;
+    }
+
+    area.innerHTML = `
+      <div class="identify-form" style="text-align:center">
+        <p style="margin-bottom:0.5rem;color:#888">Found from: ${esc(d.source)}</p>
+        <img src="${esc(d.preview_url)}?t=${Date.now()}" style="max-width:300px;max-height:300px;border-radius:8px;cursor:pointer" onclick="openLightbox('${esc(d.preview_url)}?t=${Date.now()}')" alt="Preview">
+        <div style="margin-top:0.8rem;display:flex;gap:0.5rem;justify-content:center">
+          <button class="btn btn-accent" onclick="confirmCover(${albumId})">Confirm & Save</button>
+          <button class="btn" onclick="$('#cover-area').innerHTML=''">Cancel</button>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    btn.textContent = "Fetch Cover";
+    btn.disabled = false;
+    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+async function confirmCover(albumId) {
+  const area = $("#cover-area");
+  const btn = area.querySelector(".btn-accent");
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…'; }
+
+  try {
+    const r = await fetch(`/api/album/${albumId}/cover/confirm`, { method: "POST" });
+    const d = await r.json();
+    if (d.error) {
+      area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+      return;
+    }
+    area.innerHTML = '<div style="color:#4ecca3;padding:0.8rem;text-align:center">✓ Cover art saved and embedded</div>';
+    setTimeout(() => loadAlbum(albumId), 1500);
+  } catch (e) {
+    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+async function uploadCover(albumId, file) {
+  if (!file) return;
+  const area = $("#cover-area");
+  area.innerHTML = '<div class="loading"><span class="spinner"></span> Uploading…</div>';
+
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await fetch(`/api/album/${albumId}/cover/upload`, { method: "POST", body: fd });
+    const d = await r.json();
+    if (d.error) {
+      area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+      return;
+    }
+    area.innerHTML = '<div style="color:#4ecca3;padding:0.8rem;text-align:center">✓ Cover art uploaded and embedded</div>';
+    setTimeout(() => loadAlbum(albumId), 1500);
+  } catch (e) {
+    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+/* ---- Lightbox ---- */
+function openLightbox(src) {
+  const lb = document.createElement("div");
+  lb.className = "lightbox";
+  lb.onclick = () => lb.remove();
+  lb.innerHTML = `<img src="${esc(src)}" alt="Cover">`;
+  document.body.appendChild(lb);
+  document.addEventListener("keydown", function handler(e) {
+    if (e.key === "Escape") { lb.remove(); document.removeEventListener("keydown", handler); }
+  });
+}
+
+/* ---- Lyrics helpers ---- */
+const _lyricsStore = {};
+let _lyricsStoreId = 0;
+
+function _storeLyrics(text) {
+  const key = '_lyr_' + (++_lyricsStoreId);
+  _lyricsStore[key] = text;
+  return key;
+}
+
+function formatLyricsHtml(text) {
+  if (!text) return '<span style="color:#555">No lyrics</span>';
+  const lines = text.split('\n');
+  return lines.map(line => {
+    const m = line.match(/^(\[\d{2}:\d{2}\.\d{2,3}\])\s*(.*)$/);
+    if (m) {
+      return `<span class="lrc-timestamp">${esc(m[1])}</span>${esc(m[2])}`;
+    }
+    return esc(line);
+  }).join('\n');
+}
+
+function lyricsPreviewText(text, maxLines) {
+  if (!text) return '';
+  return text.split('\n').slice(0, maxLines || 6).join('\n');
+}
+
+function openLyricsPopup(title, bodyHtml) {
+  document.querySelector('.lyrics-popup')?.remove();
+  const popup = document.createElement('div');
+  popup.className = 'lyrics-popup';
+  popup.onclick = e => { if (e.target === popup) popup.remove(); };
+  popup.innerHTML = `
+    <div class="lyrics-popup-content">
+      <div class="lyrics-popup-header">
+        <h3>${title}</h3>
+        <button class="lyrics-popup-close" onclick="this.closest('.lyrics-popup').remove()">&times;</button>
+      </div>
+      <div class="lyrics-popup-body">${bodyHtml}</div>
+    </div>
+  `;
+  document.body.appendChild(popup);
+  const handler = e => { if (e.key === 'Escape') { popup.remove(); document.removeEventListener('keydown', handler); } };
+  document.addEventListener('keydown', handler);
+}
+
+function showFullLyrics(storeKey, title) {
+  const text = _lyricsStore[storeKey] || '';
+  openLyricsPopup(esc(title), `<div class="lyrics-text">${formatLyricsHtml(text)}</div>`);
+}
+
+/* ---- Track lyrics inline panel ---- */
+async function toggleTrackLyrics(albumId, trackId) {
+  const row = $(`#lyrics-${trackId}`);
+  if (row.style.display !== 'none') {
+    row.style.display = 'none';
+    return;
+  }
+  row.style.display = '';
+  const panel = $(`#lyrics-panel-${trackId}`);
+  panel.innerHTML = '<span class="spinner"></span> Loading…';
+  try {
+    const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics`);
+    const d = await r.json();
+    if (d.error) { panel.innerHTML = `<span class="error">${esc(d.error)}</span>`; return; }
+    _renderLyricsPanel(panel, albumId, trackId, d);
+  } catch (e) {
+    panel.innerHTML = `<span class="error">${esc(e.message)}</span>`;
+  }
+}
+
+function _renderLyricsPanel(panel, albumId, trackId, d) {
+  let html = '<div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.6rem;flex-wrap:wrap">';
+  if (d.has_lyrics) {
+    if (d.source === 'lrc_file') {
+      html += `<span class="lrc-badge">External .lrc file</span>`;
+      html += `<button class="btn btn-sm btn-lyrics" onclick="embedLrcLyrics(${albumId}, ${trackId})">Embed into file</button>`;
+    } else {
+      html += `<span class="lyrics-source-badge">Embedded</span>`;
+    }
+  }
+  html += `<button class="btn btn-sm" onclick="openLyricsEditor(${albumId}, ${trackId})">Edit</button>`;
+  html += `<button class="btn btn-sm" onclick="fetchTrackLyrics(${albumId}, ${trackId}, this)">Search online</button>`;
+  html += '</div>';
+
+  if (d.has_lyrics) {
+    const storeKey = _storeLyrics(d.lyrics);
+    html += `<div class="lyrics-preview-inline" onclick="showFullLyrics('${storeKey}', 'Lyrics')">${formatLyricsHtml(lyricsPreviewText(d.lyrics, 8))}</div>`;
+  } else {
+    html += '<span style="color:#555;font-size:0.8rem">No lyrics</span>';
+  }
+
+  panel.innerHTML = html;
+}
+
+/* ---- Lyrics editor (inline) ---- */
+function openLyricsEditor(albumId, trackId) {
+  const row = $(`#lyrics-${trackId}`);
+  row.style.display = '';
+  const panel = $(`#lyrics-panel-${trackId}`);
+
+  // Load current text first
+  fetch(`/api/album/${albumId}/track/${trackId}/lyrics`)
+    .then(r => r.json())
+    .then(d => {
+      const existing = (d.has_lyrics ? d.lyrics : '') || '';
+      panel.innerHTML = `
+        <textarea id="lyrics-editor-${trackId}" style="width:100%;min-height:200px;background:#111;color:#e0e0e0;border:1px solid #0f3460;border-radius:6px;padding:0.6rem;font-size:0.8rem;line-height:1.6;font-family:inherit;resize:vertical">${esc(existing)}</textarea>
+        <div style="margin-top:0.5rem;display:flex;gap:0.5rem">
+          <button class="btn btn-sm btn-accent" onclick="saveLyricsEdit(${albumId}, ${trackId})">Save</button>
+          <button class="btn btn-sm" onclick="toggleTrackLyrics(${albumId}, ${trackId})">Cancel</button>
+        </div>
+      `;
+    });
+}
+
+async function saveLyricsEdit(albumId, trackId) {
+  const textarea = $(`#lyrics-editor-${trackId}`);
+  if (!textarea) return;
+  const text = textarea.value;
+  const panel = $(`#lyrics-panel-${trackId}`);
+  const btn = panel.querySelector('.btn-accent');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…'; }
+
+  try {
+    const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics/save`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({lyrics: text}),
+    });
+    const d = await r.json();
+    if (d.error) { alert(d.error); if (btn) { btn.disabled = false; btn.textContent = 'Save'; } return; }
+    // Reload the panel
+    const r2 = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics`);
+    const d2 = await r2.json();
+    _renderLyricsPanel(panel, albumId, trackId, d2);
+  } catch (e) {
+    alert(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+  }
+}
+
+/* ---- Embed .lrc into file (inline) ---- */
+async function embedLrcLyrics(albumId, trackId) {
+  const panel = $(`#lyrics-panel-${trackId}`);
+  try {
+    const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics/embed`, { method: 'POST' });
+    const d = await r.json();
+    if (d.error) { alert(d.error); return; }
+    // Reload panel
+    const r2 = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics`);
+    const d2 = await r2.json();
+    _renderLyricsPanel(panel, albumId, trackId, d2);
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+/* ---- Fetch lyrics for single track (inline) ---- */
+async function fetchTrackLyrics(albumId, trackId, btn) {
+  const panel = $(`#lyrics-panel-${trackId}`);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Searching…';
+  try {
+    const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics/fetch`, { method: 'POST' });
+    const d = await r.json();
+    if (d.error) { alert(d.error); btn.disabled = false; btn.textContent = 'Search online'; return; }
+    if (!d.found) {
+      btn.textContent = 'Search online';
+      btn.disabled = false;
+      panel.innerHTML += '<div style="color:#e94560;font-size:0.8rem;margin-top:0.5rem">No lyrics found online</div>';
+      return;
+    }
+
+    // Show diff inline
+    const curKey = _storeLyrics(d.current_lyrics || '');
+    const newKey = _storeLyrics(d.new_lyrics);
+
+    let currentCol = '';
+    if (d.current_lyrics) {
+      const srcBadge = d.current_source === 'lrc_file'
+        ? '<span class="lrc-badge">External .lrc</span> '
+        : '<span class="lyrics-source-badge">Embedded</span> ';
+      currentCol = `<div class="lyrics-diff-col">
+        <h4>Current ${srcBadge}</h4>
+        <div class="lyrics-preview-inline" onclick="showFullLyrics('${curKey}', 'Current')">${formatLyricsHtml(lyricsPreviewText(d.current_lyrics, 6))}</div>
+      </div>`;
+    } else {
+      currentCol = `<div class="lyrics-diff-col"><h4>Current</h4><span style="color:#555">No lyrics</span></div>`;
+    }
+
+    const newBadge = d.new_synced ? ' <span class="lyrics-source-badge">synced</span>' : '';
+    const newCol = `<div class="lyrics-diff-col">
+      <h4>New (${esc(d.new_backend)})${newBadge}</h4>
+      <div class="lyrics-preview-inline" onclick="showFullLyrics('${newKey}', 'New')">${formatLyricsHtml(lyricsPreviewText(d.new_lyrics, 6))}</div>
+    </div>`;
+
+    panel.innerHTML = `
+      <div class="lyrics-diff">${currentCol}${newCol}</div>
+      <div style="margin-top:0.6rem;display:flex;gap:0.5rem">
+        <button class="btn btn-sm btn-accent" onclick="confirmTrackLyrics(${albumId}, ${trackId})">Confirm & Write</button>
+        <button class="btn btn-sm" onclick="reloadLyricsPanel(${albumId}, ${trackId})">Cancel</button>
+      </div>
+    `;
+  } catch (e) {
+    btn.textContent = 'Search online';
+    btn.disabled = false;
+    alert(e.message);
+  }
+}
+
+async function confirmTrackLyrics(albumId, trackId) {
+  const panel = $(`#lyrics-panel-${trackId}`);
+  const btn = panel.querySelector('.btn-accent');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Writing…'; }
+  try {
+    const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics/confirm`, { method: 'POST' });
+    const d = await r.json();
+    if (d.error) { alert(d.error); if (btn) { btn.disabled = false; btn.textContent = 'Confirm & Write'; } return; }
+    // Reload panel
+    const r2 = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics`);
+    const d2 = await r2.json();
+    _renderLyricsPanel(panel, albumId, trackId, d2);
+  } catch (e) {
+    alert(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirm & Write'; }
+  }
+}
+
+async function reloadLyricsPanel(albumId, trackId) {
+  const panel = $(`#lyrics-panel-${trackId}`);
+  const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics`);
+  const d = await r.json();
+  _renderLyricsPanel(panel, albumId, trackId, d);
+}
+
+/* ---- Fetch lyrics for whole album ---- */
+async function fetchAlbumLyrics(albumId) {
+  const btn = document.getElementById('lyrics-btn');
+  const area = document.getElementById('lyrics-area');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Fetching lyrics…';
+
+  try {
+    const r = await fetch(`/api/album/${albumId}/lyrics/fetch`, { method: 'POST' });
+    const d = await r.json();
+    btn.textContent = 'Fetch All';
+    btn.disabled = false;
+
+    if (d.error) { area.innerHTML = `<div class="error">${esc(d.error)}</div>`; return; }
+
+    const found = d.tracks.filter(t => t.found);
+    if (!found.length) {
+      area.innerHTML = '<div class="identify-form" style="padding:0.8rem">No lyrics found for any track</div>';
+      return;
+    }
+
+    let html = '<div class="identify-form"><h3 style="margin-bottom:0.8rem;font-size:0.95rem">Lyrics Results</h3>';
+
+    for (const t of d.tracks) {
+      const trackNum = (t.disc > 1 ? t.disc + '-' : '') + t.track;
+      html += `<div class="lyrics-result-item">`;
+      html += `<div class="lyrics-result-header">
+        <span class="lyrics-result-title">${esc(trackNum)}. ${esc(t.title)}</span>`;
+
+      if (t.found) {
+        const syncBadge = t.new_synced ? ' <span class="lyrics-source-badge">synced</span>' : '';
+        html += `<span class="lyrics-result-meta">${esc(t.new_backend)}${syncBadge}</span>`;
+      } else {
+        html += `<span class="lyrics-result-meta" style="color:#e94560">not found</span>`;
+      }
+      html += `</div>`;
+
+      if (t.found) {
+        const curKey = _storeLyrics(t.current_lyrics || '');
+        const newKey = _storeLyrics(t.new_lyrics);
+        const safeTitle = esc(t.title).replace(/'/g, "\\'");
+
+        let currentCol = '';
+        if (t.current_lyrics) {
+          const srcBadge = t.current_source === 'lrc_file'
+            ? '<span class="lrc-badge">External .lrc</span>'
+            : '<span class="lyrics-source-badge">Embedded</span>';
+          currentCol = `<div class="lyrics-diff-col">
+            <h4>Current ${srcBadge}</h4>
+            <div class="lyrics-preview-inline" onclick="showFullLyrics('${curKey}', 'Current — ${safeTitle}')">${formatLyricsHtml(lyricsPreviewText(t.current_lyrics, 4))}</div>
+          </div>`;
+        } else {
+          currentCol = `<div class="lyrics-diff-col"><h4>Current</h4><span style="color:#555">none</span></div>`;
+        }
+
+        const newCol = `<div class="lyrics-diff-col">
+          <h4>New</h4>
+          <div class="lyrics-preview-inline" onclick="showFullLyrics('${newKey}', 'New — ${safeTitle}')">${formatLyricsHtml(lyricsPreviewText(t.new_lyrics, 4))}</div>
+        </div>`;
+
+        html += `<div class="lyrics-diff">${currentCol}${newCol}</div>`;
+        html += `<label style="display:flex;align-items:center;gap:0.4rem;margin-top:0.5rem;font-size:0.8rem;cursor:pointer">
+          <input type="checkbox" class="lyrics-track-cb" value="${t.item_id}" checked> Write lyrics for this track
+        </label>`;
+      }
+
+      html += `</div>`;
+    }
+
+    html += `<div style="margin-top:1rem;display:flex;gap:0.5rem">
+      <button class="btn btn-accent" onclick="confirmAlbumLyrics(${albumId})">Confirm & Write Selected</button>
+      <button class="btn" onclick="document.getElementById('lyrics-area').innerHTML=''">Cancel</button>
+    </div></div>`;
+
+    area.innerHTML = html;
+  } catch (e) {
+    btn.textContent = 'Fetch All';
+    btn.disabled = false;
+    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+async function confirmAlbumLyrics(albumId) {
+  const area = document.getElementById('lyrics-area');
+  const checkboxes = area.querySelectorAll('.lyrics-track-cb:checked');
+  const itemIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+  if (!itemIds.length) { alert('No tracks selected'); return; }
+
+  const btn = area.querySelector('.btn-accent');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Writing…'; }
+
+  try {
+    const r = await fetch(`/api/album/${albumId}/lyrics/confirm`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({item_ids: itemIds}),
+    });
+    const d = await r.json();
+    if (d.error) { area.innerHTML = `<div class="error">${esc(d.error)}</div>`; return; }
+    area.innerHTML = `<div style="color:#4ecca3;padding:0.8rem">✓ Lyrics written for ${d.written} track(s)</div>`;
+  } catch (e) {
+    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+/* ---- Init ---- */
+route();
+</script>
+</body>
+</html>

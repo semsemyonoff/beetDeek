@@ -1,0 +1,219 @@
+# beetDeck
+
+A web interface for managing a [beets](https://beets.io/) music library. beetDeck does not handle file importing — it enhances an existing library with identification (MusicBrainz autotag), genres (Last.fm), cover art, lyrics, and tag browsing.
+
+Works well alongside tools like Lidarr that manage the file library, while beets serves as an additional tagging layer on top.
+
+## Features
+
+- **Library browser** — collapsible artist list with album thumbnails, year, and tagged status
+- **Artist page** — dedicated page with album grid for a single artist
+- **Album detail** — cover art with lightbox, metadata, file path, full track listing
+- **Search** — full-text search across artists, albums, and tracks (full Unicode support)
+- **Filter by status** — filter albums by tagged / untagged on library and artist pages
+- **Identification** — MusicBrainz autotag with candidate selection, diff preview, confirm & write
+- **Genre tagging** — Last.fm genre lookup with old/new preview and confirm
+- **Cover art** — fetch from multiple sources (filesystem, Cover Art Archive, iTunes, Amazon), preview, confirm; manual upload supported. High-res file + embedded thumbnail
+- **Lyrics** — per-track and bulk album lyrics via lrclib (synced and plain text). Inline viewer/editor, online search with diff preview, external `.lrc` file embed
+- **Rescan** — quick (incremental) or full library rescan to add new files and remove stale entries
+- **Light/dark theme** — auto-detects system preference with manual toggle, persisted in localStorage
+
+## Quick start
+
+### 1. Build the image
+
+```bash
+docker build -t beetdeck:local ./images/beet
+```
+
+### 2. Prepare beets config
+
+Create a directory for beets configuration and database:
+
+```bash
+mkdir -p ./beetdeck-config/beets
+```
+
+Create `./beetdeck-config/beets/config.yaml`:
+
+```yaml
+directory: /music
+library: /config/beets/library.db
+
+import:
+  copy: no
+  move: no
+  write: yes
+  incremental: yes
+  duplicate_action: skip
+
+plugins:
+  - musicbrainz
+  - fetchart
+  - embedart
+  - lastgenre
+  - lyrics
+  - info
+
+fetchart:
+  auto: no
+  high_resolution: yes
+  sources:
+    - filesystem
+    - coverart
+    - itunes
+    - amazon
+    - albumart
+  minwidth: 500
+  maxwidth: 1200
+  store_source: yes
+
+embedart:
+  auto: no
+  ifempty: yes
+
+lastgenre:
+  auto: no
+  count: 3
+  source: album
+
+lyrics:
+  auto: no
+  sources: [lrclib]
+  synced: yes
+```
+
+### 3. Run with docker compose
+
+```yaml
+# docker-compose.yml
+services:
+  beetdeck:
+    build: ./images/beet
+    image: beetdeck:local
+    container_name: beetdeck
+    user: "1000:1000"  # match your music library file ownership
+    environment:
+      - TZ=Europe/London
+      - BEETSDIR=/config/beets
+      - BEETS_LIBRARY_DB=/config/beets/library.db
+      - BEETS_IMPORT_DIR=/music
+    volumes:
+      - ./beetdeck-config/beets:/config/beets
+      - /path/to/your/music:/music
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+```
+
+```bash
+docker compose up -d
+```
+
+Open `http://localhost:5000` in your browser.
+
+### 4. Initial library scan
+
+Click **Rescan Library** → **Full Scan** in the UI to populate the beets database from your music directory. After the initial scan, use **Quick Scan** for incremental updates.
+
+## Configuration
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TZ` | `UTC` | Container timezone |
+| `BEETSDIR` | `/config/beets` | beets configuration directory |
+| `BEETS_LIBRARY_DB` | `/config/beets/library.db` | Path to beets SQLite database |
+| `BEETS_IMPORT_DIR` | `/mnt/data/music/library` | Music library root for rescan |
+
+### Volumes
+
+| Container path | Description |
+|----------------|-------------|
+| `/config/beets` | beets config, database (`library.db`), and state — **must be writable** |
+| `/music` (or your choice) | Music library — **must be writable** for tag writing, cover embedding, lyrics |
+
+### Running as non-root
+
+The container runs as whatever `user:` is set in compose. Make sure the UID/GID has:
+- **Read/write** access to the beets config volume (`/config/beets`)
+- **Read/write** access to the music library volume (for writing tags, covers, lyrics)
+
+### beets plugins
+
+The following beets plugins are used and should be listed in `config.yaml`:
+
+| Plugin | Purpose |
+|--------|---------|
+| `musicbrainz` | Album identification / autotag |
+| `fetchart` | Cover art fetching from online sources |
+| `embedart` | Embedding cover art into audio files |
+| `lastgenre` | Genre tagging via Last.fm |
+| `lyrics` | Lyrics fetching (lrclib) |
+| `info` | Reading raw file tags |
+
+All plugins have `auto: no` — beetDeck triggers them on demand through the UI.
+
+## Architecture
+
+- **Backend**: Flask + gunicorn (1 worker, 4 threads). Single worker is required because in-memory state (identification tasks, cover previews) must be shared across requests.
+- **Frontend**: vanilla JavaScript SPA with hash-based routing (`#` = library, `#artist/<name>` = artist page, `#album/<id>` = album page). No build tools or dependencies.
+- **beets integration**: uses the beets Python API directly (not the CLI) for identification, genre lookup, cover art, and lyrics. The CLI is only used for `beet import` (rescan) and `beet update` (prune stale entries).
+
+## API reference
+
+### Library & browsing
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/library` | List all artists with their albums |
+| GET | `/api/search?q=<query>` | Search artists, albums, and tracks by name |
+| GET | `/api/artist?name=<name>` | Get all albums by a specific artist |
+| GET | `/api/album/<id>` | Album details with full track listing |
+
+### Rescan
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/rescan?mode=quick\|full` | Start library rescan (default: quick) |
+| GET | `/api/rescan/status` | Poll rescan status (`idle` / `running` / `done`) |
+
+### Cover art
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/album/<id>/cover` | Serve current album cover |
+| POST | `/api/album/<id>/cover/fetch` | Search for cover art online (preview) |
+| GET | `/api/album/<id>/cover/preview` | Serve fetched cover preview |
+| POST | `/api/album/<id>/cover/confirm` | Save high-res + embed thumbnail |
+| POST | `/api/album/<id>/cover/upload` | Upload custom cover image |
+
+### Identification & tags
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/album/<id>/track/<tid>/tags` | Read all tags from a track file |
+| POST | `/api/album/<id>/identify` | Start MusicBrainz autotag |
+| GET | `/api/album/<id>/identify/status` | Poll identification progress and candidates |
+| POST | `/api/album/<id>/apply` | Preview tag changes for a candidate |
+| POST | `/api/album/<id>/confirm` | Write selected tags to files |
+
+### Genre
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/album/<id>/genre` | Fetch genre preview from Last.fm |
+| POST | `/api/album/<id>/genre/confirm` | Write genre tags to files |
+
+### Lyrics
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/album/<id>/track/<tid>/lyrics` | Get current lyrics (database or .lrc file) |
+| POST | `/api/album/<id>/track/<tid>/lyrics/fetch` | Search lyrics online (preview) |
+| POST | `/api/album/<id>/track/<tid>/lyrics/confirm` | Write fetched lyrics |
+| POST | `/api/album/<id>/track/<tid>/lyrics/embed` | Embed external .lrc into audio file tag |
+| POST | `/api/album/<id>/track/<tid>/lyrics/save` | Save manually edited lyrics |
+| POST | `/api/album/<id>/lyrics/fetch` | Bulk fetch lyrics for all album tracks |
+| POST | `/api/album/<id>/lyrics/confirm` | Write lyrics for selected tracks |
