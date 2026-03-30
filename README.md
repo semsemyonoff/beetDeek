@@ -28,60 +28,14 @@ docker build -t beetdeck:local ./images/beet
 
 ### 2. Prepare beets config
 
-Create a directory for beets configuration and database:
+Create a directory for beets configuration and copy the example config:
 
 ```bash
-mkdir -p ./beetdeck-config/beets
+mkdir -p ./beetdeck-config
+cp config.yaml ./beetdeck-config/config.yaml
 ```
 
-Create `./beetdeck-config/beets/config.yaml`:
-
-```yaml
-directory: /music
-library: /config/beets/library.db
-
-import:
-  copy: no
-  move: no
-  write: yes
-  incremental: yes
-  duplicate_action: skip
-
-plugins:
-  - musicbrainz
-  - fetchart
-  - embedart
-  - lastgenre
-  - lyrics
-  - info
-
-fetchart:
-  auto: no
-  high_resolution: yes
-  sources:
-    - filesystem
-    - coverart
-    - itunes
-    - amazon
-    - albumart
-  minwidth: 500
-  maxwidth: 1200
-  store_source: yes
-
-embedart:
-  auto: no
-  ifempty: yes
-
-lastgenre:
-  auto: no
-  count: 3
-  source: album
-
-lyrics:
-  auto: no
-  sources: [lrclib]
-  synced: yes
-```
+See [`config.yaml`](config.yaml) for an example beets configuration.
 
 ### 3. Run with docker compose
 
@@ -96,11 +50,12 @@ services:
     environment:
       - TZ=Europe/London
       - BEETSDIR=/config/beets
-      - BEETS_LIBRARY_DB=/config/beets/library.db
+      - BEETS_LIBRARY_DB=/data/beets/library.db
       - BEETS_IMPORT_DIR=/music
     volumes:
-      - ./beetdeck-config/beets:/config/beets
-      - /path/to/your/music:/music
+      - ./beetdeck-config:/config/beets:ro   # beets config (read-only)
+      - ./beetdeck-data:/data/beets           # database & state (writable)
+      - /path/to/your/music:/music            # music library (writable)
     ports:
       - "5000:5000"
     restart: unless-stopped
@@ -124,20 +79,22 @@ Click **Rescan Library** → **Full Scan** in the UI to populate the beets datab
 |----------|---------|-------------|
 | `TZ` | `UTC` | Container timezone |
 | `BEETSDIR` | `/config/beets` | beets configuration directory |
-| `BEETS_LIBRARY_DB` | `/config/beets/library.db` | Path to beets SQLite database |
-| `BEETS_IMPORT_DIR` | `/mnt/data/music/library` | Music library root for rescan |
+| `BEETS_LIBRARY_DB` | `/data/beets/library.db` | Path to beets SQLite database |
+| `BEETS_IMPORT_DIR` | `/music` | Music library root for rescan |
 
 ### Volumes
 
 | Container path | Description |
 |----------------|-------------|
-| `/config/beets` | beets config, database (`library.db`), and state — **must be writable** |
-| `/music` (or your choice) | Music library — **must be writable** for tag writing, cover embedding, lyrics |
+| `/config/beets` | beets configuration — **read-only** |
+| `/data/beets` | Database (`library.db`) and state (`state.pickle`) — **must be writable** |
+| `/music` | Music library — **must be writable** for tag writing, cover embedding, lyrics |
 
 ### Running as non-root
 
 The container runs as whatever `user:` is set in compose. Make sure the UID/GID has:
-- **Read/write** access to the beets config volume (`/config/beets`)
+- **Read** access to the beets config volume (`/config/beets`)
+- **Read/write** access to the data volume (`/data/beets`)
 - **Read/write** access to the music library volume (for writing tags, covers, lyrics)
 
 ### beets plugins

@@ -10,8 +10,8 @@ from flask import Flask, jsonify, render_template, send_file
 
 app = Flask(__name__)
 
-LIBRARY_DB = os.environ.get("BEETS_LIBRARY_DB", "/config/beets/library.db")
-IMPORT_DIR = os.environ.get("BEETS_IMPORT_DIR", "/mnt/data/music/library")
+LIBRARY_DB = os.environ.get("BEETS_LIBRARY_DB", "/data/beets/library.db")
+IMPORT_DIR = os.environ.get("BEETS_IMPORT_DIR", "/music")
 
 # ---------------------------------------------------------------------------
 # Logging — verbose beets output to container stdout
@@ -29,9 +29,15 @@ _identify_tasks = {}
 _identify_lock = threading.Lock()
 
 COVER_NAMES = [
-    "cover.jpg", "cover.png", "cover.jpeg",
-    "folder.jpg", "folder.png", "folder.jpeg",
-    "front.jpg", "front.png", "front.jpeg",
+    "cover.jpg",
+    "cover.png",
+    "cover.jpeg",
+    "folder.jpg",
+    "folder.png",
+    "folder.jpeg",
+    "front.jpg",
+    "front.png",
+    "front.jpeg",
 ]
 
 # All possible cover file patterns (including numbered duplicates like cover.1.jpg)
@@ -128,6 +134,7 @@ def _init_beets():
 # Pages
 # ---------------------------------------------------------------------------
 
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -142,8 +149,11 @@ def logo():
 # Library list
 # ---------------------------------------------------------------------------
 
+
 @app.route("/api/library")
 def library():
+    if not os.path.isfile(LIBRARY_DB):
+        return jsonify({"error": "not_initialized"}), 503
     try:
         conn = _get_ro_conn()
         rows = conn.execute(
@@ -182,13 +192,15 @@ def library():
         has_cover = bool(artpath and os.path.isfile(artpath))
         if not has_cover:
             has_cover = bool(_find_cover(item_dirs.get(r["id"])))
-        albums.append({
-            "id": r["id"],
-            "album": r["album"],
-            "year": yr,
-            "tagged": r["tagged"] == "1" if r["tagged"] else False,
-            "has_cover": has_cover,
-        })
+        albums.append(
+            {
+                "id": r["id"],
+                "album": r["album"],
+                "year": yr,
+                "tagged": r["tagged"] == "1" if r["tagged"] else False,
+                "has_cover": has_cover,
+            }
+        )
 
     result = [
         {"artist": name, "albums": albums}
@@ -200,6 +212,7 @@ def library():
 # ---------------------------------------------------------------------------
 # Search
 # ---------------------------------------------------------------------------
+
 
 @app.route("/api/search")
 def search():
@@ -247,7 +260,9 @@ def search():
                 search_album_ids,
             ).fetchall()
             for dr in sdir_rows:
-                search_item_dirs[dr["album_id"]] = os.path.dirname(_decode_path(dr["path"]))
+                search_item_dirs[dr["album_id"]] = os.path.dirname(
+                    _decode_path(dr["path"])
+                )
 
         albums = []
         for r in album_rows:
@@ -255,13 +270,15 @@ def search():
             has_cover = bool(artpath and os.path.isfile(artpath))
             if not has_cover:
                 has_cover = bool(_find_cover(search_item_dirs.get(r["id"])))
-            albums.append({
-                "id": r["id"],
-                "album": r["album"],
-                "albumartist": r["albumartist"],
-                "year": r["original_year"] or r["year"] or None,
-                "has_cover": has_cover,
-            })
+            albums.append(
+                {
+                    "id": r["id"],
+                    "album": r["album"],
+                    "albumartist": r["albumartist"],
+                    "year": r["original_year"] or r["year"] or None,
+                    "has_cover": has_cover,
+                }
+            )
 
         # Tracks
         track_rows = conn.execute(
@@ -298,6 +315,7 @@ def search():
 # ---------------------------------------------------------------------------
 # Artist page
 # ---------------------------------------------------------------------------
+
 
 @app.route("/api/artist")
 def artist_detail():
@@ -344,13 +362,15 @@ def artist_detail():
         has_cover = bool(artpath and os.path.isfile(artpath))
         if not has_cover:
             has_cover = bool(_find_cover(item_dirs.get(r["id"])))
-        albums.append({
-            "id": r["id"],
-            "album": r["album"],
-            "year": r["original_year"] or r["year"] or None,
-            "tagged": r["tagged"] == "1" if r["tagged"] else False,
-            "has_cover": has_cover,
-        })
+        albums.append(
+            {
+                "id": r["id"],
+                "album": r["album"],
+                "year": r["original_year"] or r["year"] or None,
+                "tagged": r["tagged"] == "1" if r["tagged"] else False,
+                "has_cover": has_cover,
+            }
+        )
 
     return jsonify({"artist": name, "albums": albums})
 
@@ -358,6 +378,7 @@ def artist_detail():
 # ---------------------------------------------------------------------------
 # Album detail
 # ---------------------------------------------------------------------------
+
 
 @app.route("/api/album/<int:album_id>")
 def album_detail(album_id):
@@ -386,7 +407,9 @@ def album_detail(album_id):
 
         album_dir = _album_dir_from_items(conn, album_id)
         artpath = _decode_path(a["artpath"]) if a["artpath"] else None
-        has_cover = bool(artpath and os.path.isfile(artpath)) or bool(_find_cover(album_dir))
+        has_cover = bool(artpath and os.path.isfile(artpath)) or bool(
+            _find_cover(album_dir)
+        )
         conn.close()
     except sqlite3.OperationalError as e:
         return jsonify({"error": str(e)}), 500
@@ -399,42 +422,49 @@ def album_detail(album_id):
 
     tracks = []
     for it in items:
-        tracks.append({
-            "id": it["id"],
-            "title": it["title"],
-            "artist": it["artist"],
-            "track": it["track"],
-            "disc": it["disc"],
-            "length": fmt_length(it["length"]),
-            "format": it["format"],
-            "bitrate": it["bitrate"],
-            "samplerate": it["samplerate"],
-        })
+        tracks.append(
+            {
+                "id": it["id"],
+                "title": it["title"],
+                "artist": it["artist"],
+                "track": it["track"],
+                "disc": it["disc"],
+                "length": fmt_length(it["length"]),
+                "format": it["format"],
+                "bitrate": it["bitrate"],
+                "samplerate": it["samplerate"],
+            }
+        )
 
-    return jsonify({
-        "id": a["id"],
-        "album": a["album"],
-        "albumartist": a["albumartist"],
-        "year": a["original_year"] or a["year"] or None,
-        "genre": a["genres"] or a["genre"] or "",
-        "label": a["label"] or "",
-        "mb_albumid": a["mb_albumid"] or "",
-        "path": album_dir or "",
-        "has_cover": has_cover,
-        "tagged": a["tagged"] == "1" if a["tagged"] else False,
-        "tracks": tracks,
-    })
+    return jsonify(
+        {
+            "id": a["id"],
+            "album": a["album"],
+            "albumartist": a["albumartist"],
+            "year": a["original_year"] or a["year"] or None,
+            "genre": a["genres"] or a["genre"] or "",
+            "label": a["label"] or "",
+            "mb_albumid": a["mb_albumid"] or "",
+            "path": album_dir or "",
+            "has_cover": has_cover,
+            "tagged": a["tagged"] == "1" if a["tagged"] else False,
+            "tracks": tracks,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Cover art
 # ---------------------------------------------------------------------------
 
+
 @app.route("/api/album/<int:album_id>/cover")
 def album_cover(album_id):
     try:
         conn = _get_ro_conn()
-        a = conn.execute("SELECT artpath FROM albums WHERE id = ?", (album_id,)).fetchone()
+        a = conn.execute(
+            "SELECT artpath FROM albums WHERE id = ?", (album_id,)
+        ).fetchone()
         album_dir = _album_dir_from_items(conn, album_id)
         conn.close()
     except sqlite3.OperationalError:
@@ -458,8 +488,9 @@ COVER_EMBED_QUALITY = 70
 
 def _resize_image(src_path, max_size, quality=95):
     """Resize image to fit max_size, return path to temp JPEG file."""
-    from PIL import Image
     import tempfile
+
+    from PIL import Image
 
     img = Image.open(src_path)
     img.thumbnail((max_size, max_size), Image.LANCZOS)
@@ -492,13 +523,15 @@ def _save_cover_to_album(album, src_path):
         os.unlink(hires_path)
 
     # 2. Embed smaller version — beets resizes from artpath on the fly
-    art.embed_album(_beets_log, album,
-                    maxwidth=COVER_EMBED_MAX, quality=COVER_EMBED_QUALITY)
+    art.embed_album(
+        _beets_log, album, maxwidth=COVER_EMBED_MAX, quality=COVER_EMBED_QUALITY
+    )
 
 
 # ---------------------------------------------------------------------------
 # Cover art management
 # ---------------------------------------------------------------------------
+
 
 @app.route("/api/album/<int:album_id>/cover/fetch", methods=["POST"])
 def fetch_cover(album_id):
@@ -510,6 +543,7 @@ def fetch_cover(album_id):
             return jsonify({"error": "Album not found"}), 404
 
         from beets import plugins
+
         fetchart = None
         for p in plugins.find_plugins():
             if p.name == "fetchart":
@@ -518,8 +552,12 @@ def fetch_cover(album_id):
         if not fetchart:
             return jsonify({"error": "fetchart plugin not loaded"}), 500
 
-        log.info("Fetching cover art for album_id=%d: %s - %s",
-                 album_id, album.albumartist, album.album)
+        log.info(
+            "Fetching cover art for album_id=%d: %s - %s",
+            album_id,
+            album.albumartist,
+            album.album,
+        )
 
         candidate = fetchart.art_for_album(album, paths=[], local_only=False)
 
@@ -534,17 +572,22 @@ def fetch_cover(album_id):
             "source": getattr(candidate, "source_name", "unknown"),
         }
 
-        log.info("Cover art found for album_id=%d from %s: %s",
-                 album_id, getattr(candidate, "source_name", "?"),
-                 _decode_path(candidate.path))
+        log.info(
+            "Cover art found for album_id=%d from %s: %s",
+            album_id,
+            getattr(candidate, "source_name", "?"),
+            _decode_path(candidate.path),
+        )
 
         lib._close()
-        return jsonify({
-            "status": "ok",
-            "found": True,
-            "source": getattr(candidate, "source_name", "unknown"),
-            "preview_url": f"/api/album/{album_id}/cover/preview",
-        })
+        return jsonify(
+            {
+                "status": "ok",
+                "found": True,
+                "source": getattr(candidate, "source_name", "unknown"),
+                "preview_url": f"/api/album/{album_id}/cover/preview",
+            }
+        )
 
     except Exception as e:
         log.exception("Cover fetch failed for album_id=%d", album_id)
@@ -580,8 +623,7 @@ def confirm_cover(album_id):
         if not os.path.isfile(candidate_path):
             return jsonify({"error": "Cover art file not found"}), 404
 
-        log.info("Saving cover art for album_id=%d from %s",
-                 album_id, candidate_path)
+        log.info("Saving cover art for album_id=%d from %s", album_id, candidate_path)
 
         _save_cover_to_album(album, candidate_path)
 
@@ -614,6 +656,7 @@ def upload_cover(album_id):
 
         # Save uploaded file to temp location
         import tempfile
+
         ext = os.path.splitext(f.filename)[1] or ".jpg"
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir="/tmp")
         f.save(tmp)
@@ -638,6 +681,7 @@ def upload_cover(album_id):
 # ---------------------------------------------------------------------------
 # Track tags
 # ---------------------------------------------------------------------------
+
 
 @app.route("/api/album/<int:album_id>/track/<int:item_id>/tags")
 def track_tags(album_id, item_id):
@@ -681,6 +725,7 @@ def track_tags(album_id, item_id):
 # Rescan
 # ---------------------------------------------------------------------------
 
+
 @app.route("/api/rescan", methods=["POST"])
 def rescan():
     from flask import request
@@ -690,11 +735,12 @@ def rescan():
     with _rescan_lock:
         if _rescan_proc and _rescan_proc.poll() is None:
             return jsonify({"status": "running"}), 409
-        inc = "-i " if mode == "quick" else ""
-        cmd = f"beet -v import -A -C {inc}{IMPORT_DIR} && beet -v update -M"
+        inc = "-i" if mode == "quick" else "-I"
+        cmd = f"beet -v import -A -C {inc} {IMPORT_DIR} && beet -v update -M"
         log.info("Starting rescan (%s): %s", mode, cmd)
         _rescan_proc = subprocess.Popen(
-            cmd, shell=True,
+            cmd,
+            shell=True,
             stdout=sys.stderr,
             stderr=sys.stderr,
         )
@@ -714,6 +760,7 @@ def rescan_status():
 # Genre (lastgenre)
 # ---------------------------------------------------------------------------
 
+
 @app.route("/api/album/<int:album_id>/genre", methods=["POST"])
 def fetch_genre_preview(album_id):
     """Fetch genre from Last.fm without writing. Returns old and new values."""
@@ -724,6 +771,7 @@ def fetch_genre_preview(album_id):
             return jsonify({"error": "Album not found"}), 404
 
         from beets import plugins
+
         lastgenre = None
         for p in plugins.find_plugins():
             if p.name == "lastgenre":
@@ -735,8 +783,12 @@ def fetch_genre_preview(album_id):
 
         old_genre = album.get("genres", "") or ""
 
-        log.info("Fetching genre preview for album_id=%d: %s - %s",
-                 album_id, album.albumartist, album.album)
+        log.info(
+            "Fetching genre preview for album_id=%d: %s - %s",
+            album_id,
+            album.albumartist,
+            album.album,
+        )
 
         # Fetch without writing (pretend mode)
         lastgenre.config["pretend"].set(True)
@@ -746,18 +798,22 @@ def fetch_genre_preview(album_id):
             lastgenre.config["pretend"].set(False)
 
         new_genre = album.get("genres", "") or ""
-        log.info("Genre preview for album_id=%d: %r -> %r", album_id, old_genre, new_genre)
+        log.info(
+            "Genre preview for album_id=%d: %r -> %r", album_id, old_genre, new_genre
+        )
 
         # Restore old value (we only previewed)
         album.genres = old_genre
         album.store()
 
         lib._close()
-        return jsonify({
-            "status": "ok",
-            "old_genre": old_genre,
-            "new_genre": new_genre,
-        })
+        return jsonify(
+            {
+                "status": "ok",
+                "old_genre": old_genre,
+                "new_genre": new_genre,
+            }
+        )
 
     except Exception as e:
         log.exception("Genre preview failed for album_id=%d", album_id)
@@ -774,6 +830,7 @@ def confirm_genre(album_id):
             return jsonify({"error": "Album not found"}), 404
 
         from beets import plugins
+
         lastgenre = None
         for p in plugins.find_plugins():
             if p.name == "lastgenre":
@@ -783,8 +840,12 @@ def confirm_genre(album_id):
         if not lastgenre:
             return jsonify({"error": "lastgenre plugin not loaded"}), 500
 
-        log.info("Confirming genre for album_id=%d: %s - %s",
-                 album_id, album.albumartist, album.album)
+        log.info(
+            "Confirming genre for album_id=%d: %s - %s",
+            album_id,
+            album.albumartist,
+            album.album,
+        )
 
         lastgenre._process(album, write=True)
 
@@ -803,18 +864,23 @@ def confirm_genre(album_id):
 # Identification
 # ---------------------------------------------------------------------------
 
+
 def _serialize_candidate(idx, album_match):
     """Serialize an AlbumMatch to JSON-safe dict for the frontend."""
     info = album_match.info
     track_info = []
     for item, track in album_match.mapping.items():
-        track_info.append({
-            "title": track.title,
-            "track": track.index,
-            "artist": track.artist or info.artist,
-            "length": f"{int(track.length) // 60}:{int(track.length) % 60:02d}" if track.length else "",
-            "current_title": item.title,
-        })
+        track_info.append(
+            {
+                "title": track.title,
+                "track": track.index,
+                "artist": track.artist or info.artist,
+                "length": f"{int(track.length) // 60}:{int(track.length) % 60:02d}"
+                if track.length
+                else "",
+                "current_title": item.title,
+            }
+        )
 
     return {
         "index": idx,
@@ -836,8 +902,13 @@ def _run_identify(task_id, album_id, search_artist, search_album, search_id):
     try:
         from beets import autotag
 
-        log.info("Identify album_id=%d artist=%r album=%r id=%r",
-                 album_id, search_artist, search_album, search_id)
+        log.info(
+            "Identify album_id=%d artist=%r album=%r id=%r",
+            album_id,
+            search_artist,
+            search_album,
+            search_id,
+        )
 
         lib = _init_beets()
         album = lib.get_album(album_id)
@@ -857,8 +928,12 @@ def _run_identify(task_id, album_id, search_artist, search_album, search_id):
 
         search_ids = [search_id] if search_id else []
 
-        log.info("Running tag_album for %r - %r (%d items)",
-                 album.albumartist, album.album, len(items))
+        log.info(
+            "Running tag_album for %r - %r (%d items)",
+            album.albumartist,
+            album.album,
+            len(items),
+        )
 
         try:
             artist, album_name, proposal = autotag.tag_album(
@@ -883,10 +958,17 @@ def _run_identify(task_id, album_id, search_artist, search_album, search_id):
         candidates = [_serialize_candidate(i, m) for i, m in enumerate(matches)]
 
         for c in candidates:
-            log.info("Candidate: %r - %r (dist=%.4f, source=%s)",
-                     c["artist"], c["album"], c["distance"], c["data_source"])
+            log.info(
+                "Candidate: %r - %r (dist=%.4f, source=%s)",
+                c["artist"],
+                c["album"],
+                c["distance"],
+                c["data_source"],
+            )
 
-        log.info("Identify done for album_id=%d: %d candidates", album_id, len(candidates))
+        log.info(
+            "Identify done for album_id=%d: %d candidates", album_id, len(candidates)
+        )
         task["candidates"] = candidates
         task["status"] = "done"
 
@@ -904,6 +986,7 @@ def _get_task_json(task):
 @app.route("/api/album/<int:album_id>/identify", methods=["POST"])
 def identify(album_id):
     from flask import request
+
     data = request.get_json(silent=True) or {}
 
     with _identify_lock:
@@ -951,10 +1034,12 @@ def identify_status(album_id):
 # Apply match (preview diff)
 # ---------------------------------------------------------------------------
 
+
 @app.route("/api/album/<int:album_id>/apply", methods=["POST"])
 def apply_match(album_id):
     """Preview what would change if this candidate is applied."""
     from flask import request
+
     data = request.get_json(silent=True) or {}
     candidate_index = data.get("candidate_index", 0)
 
@@ -1004,21 +1089,25 @@ def apply_match(album_id):
             new_val = album_data.get(field, "") or ""
         album_diff[field] = {"old": str(old_val), "new": str(new_val)}
 
-    return jsonify({
-        "candidate_index": candidate_index,
-        "album": album_diff,
-        "tracks": track_diffs,
-    })
+    return jsonify(
+        {
+            "candidate_index": candidate_index,
+            "album": album_diff,
+            "tracks": track_diffs,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Confirm (write tags)
 # ---------------------------------------------------------------------------
 
+
 @app.route("/api/album/<int:album_id>/confirm", methods=["POST"])
 def confirm_match(album_id):
     """Apply the selected match using beets API and write tags to files."""
     from flask import request
+
     data = request.get_json(silent=True) or {}
     candidate_index = data.get("candidate_index", 0)
 
@@ -1038,9 +1127,14 @@ def confirm_match(album_id):
         if not album:
             return jsonify({"error": "Album not found"}), 404
 
-        log.info("Confirming match for album_id=%d: %r - %r (source=%s, dist=%.4f)",
-                 album_id, album_match.info.artist, album_match.info.album,
-                 album_match.info.data_source, float(album_match.distance))
+        log.info(
+            "Confirming match for album_id=%d: %r - %r (source=%s, dist=%.4f)",
+            album_id,
+            album_match.info.artist,
+            album_match.info.album,
+            album_match.info.data_source,
+            float(album_match.distance),
+        )
 
         # Apply track-level metadata via beets API
         album_match.apply_metadata()
@@ -1073,6 +1167,7 @@ def confirm_match(album_id):
 # ---------------------------------------------------------------------------
 # Lyrics
 # ---------------------------------------------------------------------------
+
 
 def _find_lrc_file(item_path):
     """Find a .lrc file next to the audio file."""
@@ -1118,24 +1213,29 @@ def track_lyrics(album_id, item_id):
     lrc_text = _read_lrc_file(lrc_path) if lrc_path else None
 
     if lyrics_text:
-        return jsonify({
-            "has_lyrics": True,
-            "lyrics": lyrics_text,
-            "source": "embedded",
-        })
+        return jsonify(
+            {
+                "has_lyrics": True,
+                "lyrics": lyrics_text,
+                "source": "embedded",
+            }
+        )
     elif lrc_text:
-        return jsonify({
-            "has_lyrics": True,
-            "lyrics": lrc_text,
-            "source": "lrc_file",
-            "lrc_path": lrc_path,
-        })
+        return jsonify(
+            {
+                "has_lyrics": True,
+                "lyrics": lrc_text,
+                "source": "lrc_file",
+                "lrc_path": lrc_path,
+            }
+        )
     else:
         return jsonify({"has_lyrics": False, "lyrics": "", "source": None})
 
 
-@app.route("/api/album/<int:album_id>/track/<int:item_id>/lyrics/fetch",
-           methods=["POST"])
+@app.route(
+    "/api/album/<int:album_id>/track/<int:item_id>/lyrics/fetch", methods=["POST"]
+)
 def fetch_track_lyrics(album_id, item_id):
     """Fetch lyrics for a single track from online sources (preview)."""
     try:
@@ -1145,6 +1245,7 @@ def fetch_track_lyrics(album_id, item_id):
             return jsonify({"error": "Track not found"}), 404
 
         from beets import plugins
+
         lyrics_plugin = None
         for p in plugins.find_plugins():
             if p.name == "lyrics":
@@ -1153,8 +1254,9 @@ def fetch_track_lyrics(album_id, item_id):
         if not lyrics_plugin:
             return jsonify({"error": "lyrics plugin not loaded"}), 500
 
-        log.info("Fetching lyrics for item_id=%d: %s - %s",
-                 item_id, item.artist, item.title)
+        log.info(
+            "Fetching lyrics for item_id=%d: %s - %s", item_id, item.artist, item.title
+        )
 
         result = lyrics_plugin.find_lyrics(item)
 
@@ -1173,29 +1275,35 @@ def fetch_track_lyrics(album_id, item_id):
         lrc_path = _find_lrc_file(item_path)
         lrc_text = _read_lrc_file(lrc_path) if lrc_path else None
         current_lyrics = old_lyrics or lrc_text or ""
-        current_source = "embedded" if old_lyrics else ("lrc_file" if lrc_text else None)
+        current_source = (
+            "embedded" if old_lyrics else ("lrc_file" if lrc_text else None)
+        )
 
-        log.info("Lyrics found for item_id=%d from %s", item_id,
-                 result.backend or "unknown")
+        log.info(
+            "Lyrics found for item_id=%d from %s", item_id, result.backend or "unknown"
+        )
 
         lib._close()
-        return jsonify({
-            "status": "ok",
-            "found": True,
-            "new_lyrics": result.full_text,
-            "new_synced": result.synced,
-            "new_backend": result.backend or "unknown",
-            "current_lyrics": current_lyrics,
-            "current_source": current_source,
-        })
+        return jsonify(
+            {
+                "status": "ok",
+                "found": True,
+                "new_lyrics": result.full_text,
+                "new_synced": result.synced,
+                "new_backend": result.backend or "unknown",
+                "current_lyrics": current_lyrics,
+                "current_source": current_source,
+            }
+        )
 
     except Exception as e:
         log.exception("Lyrics fetch failed for item_id=%d", item_id)
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/album/<int:album_id>/track/<int:item_id>/lyrics/confirm",
-           methods=["POST"])
+@app.route(
+    "/api/album/<int:album_id>/track/<int:item_id>/lyrics/confirm", methods=["POST"]
+)
 def confirm_track_lyrics(album_id, item_id):
     """Write fetched lyrics to a single track."""
     task = _identify_tasks.pop(f"lyrics_{item_id}", None)
@@ -1236,8 +1344,9 @@ def confirm_track_lyrics(album_id, item_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/album/<int:album_id>/track/<int:item_id>/lyrics/embed",
-           methods=["POST"])
+@app.route(
+    "/api/album/<int:album_id>/track/<int:item_id>/lyrics/embed", methods=["POST"]
+)
 def embed_lrc_lyrics(album_id, item_id):
     """Embed lyrics from external .lrc file into track and delete the .lrc."""
     try:
@@ -1260,8 +1369,7 @@ def embed_lrc_lyrics(album_id, item_id):
         item.try_write()
 
         os.remove(lrc_path)
-        log.info("Embedded .lrc and removed file for item_id=%d: %s",
-                 item_id, lrc_path)
+        log.info("Embedded .lrc and removed file for item_id=%d: %s", item_id, lrc_path)
 
         lib._close()
         return jsonify({"status": "ok"})
@@ -1271,11 +1379,13 @@ def embed_lrc_lyrics(album_id, item_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/album/<int:album_id>/track/<int:item_id>/lyrics/save",
-           methods=["POST"])
+@app.route(
+    "/api/album/<int:album_id>/track/<int:item_id>/lyrics/save", methods=["POST"]
+)
 def save_track_lyrics(album_id, item_id):
     """Manually save edited lyrics to a track."""
     from flask import request
+
     data = request.get_json(silent=True) or {}
     lyrics_text = data.get("lyrics", "")
 
@@ -1315,6 +1425,7 @@ def fetch_album_lyrics(album_id):
             return jsonify({"error": "Album not found"}), 404
 
         from beets import plugins
+
         lyrics_plugin = None
         for p in plugins.find_plugins():
             if p.name == "lyrics":
@@ -1326,8 +1437,13 @@ def fetch_album_lyrics(album_id):
         items = list(album.items())
         items.sort(key=lambda it: (it.disc, it.track))
 
-        log.info("Fetching lyrics for album_id=%d: %s - %s (%d tracks)",
-                 album_id, album.albumartist, album.album, len(items))
+        log.info(
+            "Fetching lyrics for album_id=%d: %s - %s (%d tracks)",
+            album_id,
+            album.albumartist,
+            album.album,
+            len(items),
+        )
 
         results = []
         for item in items:
@@ -1335,8 +1451,9 @@ def fetch_album_lyrics(album_id):
             lrc_path = _find_lrc_file(item_path)
             lrc_text = _read_lrc_file(lrc_path) if lrc_path else None
             current_lyrics = item.lyrics or lrc_text or ""
-            current_source = ("embedded" if item.lyrics
-                              else ("lrc_file" if lrc_text else None))
+            current_source = (
+                "embedded" if item.lyrics else ("lrc_file" if lrc_text else None)
+            )
 
             found_lyrics = lyrics_plugin.find_lyrics(item)
 
@@ -1364,12 +1481,14 @@ def fetch_album_lyrics(album_id):
                     "_lyrics_obj": found_lyrics,
                 }
 
-                log.info("Lyrics found for %s - %s from %s",
-                         item.artist, item.title,
-                         found_lyrics.backend or "unknown")
+                log.info(
+                    "Lyrics found for %s - %s from %s",
+                    item.artist,
+                    item.title,
+                    found_lyrics.backend or "unknown",
+                )
             else:
-                log.info("No lyrics found for %s - %s",
-                         item.artist, item.title)
+                log.info("No lyrics found for %s - %s", item.artist, item.title)
 
             results.append(entry)
 
@@ -1385,6 +1504,7 @@ def fetch_album_lyrics(album_id):
 def confirm_album_lyrics(album_id):
     """Write fetched lyrics for selected tracks in album."""
     from flask import request
+
     data = request.get_json(silent=True) or {}
     item_ids = data.get("item_ids", [])
 

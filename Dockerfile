@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir \
 
 COPY app.py /app/app.py
 COPY templates /app/templates
+COPY static /app/static
 COPY logo.svg /app/logo.svg
 
 RUN mkdir -p /tmp/beetdeck && chmod 1777 /tmp/beetdeck
