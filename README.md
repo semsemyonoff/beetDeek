@@ -20,13 +20,7 @@ Works well alongside tools like Lidarr that manage the file library, while beets
 
 ## Quick start
 
-### 1. Build the image
-
-```bash
-docker build -t beetdeck:local ./images/beet
-```
-
-### 2. Prepare beets config
+### 1. Prepare beets config
 
 Create a directory for beets configuration and copy the example config:
 
@@ -37,14 +31,13 @@ cp config.yaml ./beetdeck-config/config.yaml
 
 See [`config.yaml`](config.yaml) for an example beets configuration.
 
-### 3. Run with docker compose
+### 2. Run with docker compose
 
 ```yaml
 # docker-compose.yml
 services:
   beetdeck:
-    build: ./images/beet
-    image: beetdeck:local
+    image: semsemyonoff/beetdeck
     container_name: beetdeck
     user: "1000:1000"  # match your music library file ownership
     environment:
