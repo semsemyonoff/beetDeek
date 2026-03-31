@@ -1,5 +1,7 @@
 # beetDeck
 
+![logo](logo.svg)
+
 A web interface for managing a [beets](https://beets.io/) music library. beetDeck does not handle file importing — it enhances an existing library with identification (MusicBrainz autotag), genres (Last.fm), cover art, lyrics, and tag browsing.
 
 Works well alongside tools like Lidarr that manage the file library, while beets serves as an additional tagging layer on top.
