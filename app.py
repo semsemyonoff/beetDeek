@@ -436,13 +436,19 @@ def album_detail(album_id):
             }
         )
 
+    genre = ""
+    if "genres" in a.keys():
+        genre = a["genres"] or ""
+    if not genre and "genre" in a.keys():
+        genre = a["genre"] or ""
+
     return jsonify(
         {
             "id": a["id"],
             "album": a["album"],
             "albumartist": a["albumartist"],
             "year": a["original_year"] or a["year"] or None,
-            "genre": a["genres"] or a["genre"] or "",
+            "genre": genre,
             "label": a["label"] or "",
             "mb_albumid": a["mb_albumid"] or "",
             "path": album_dir or "",
