@@ -25,8 +25,27 @@ log = logging.getLogger("beetdeck")
 
 _rescan_lock = threading.Lock()
 _rescan_proc = None
+_rescan_snapshot = None  # dict of item_id -> title before scan
 _identify_tasks = {}
 _identify_lock = threading.Lock()
+
+
+def _format_genre(val):
+    """Normalize a genre value (str with null-bytes or list) to a comma-separated string."""
+    if isinstance(val, (list, tuple)):
+        return ", ".join(str(v) for v in val)
+    if isinstance(val, bytes):
+        val = val.decode("utf-8", errors="replace")
+    if not val:
+        return ""
+    val = str(val)
+    # beets stores multi-value genres with various separators:
+    # \x00 (null byte), \u2400 (SYMBOL FOR NULL), or backslash + \u2400
+    import re
+
+    parts = re.split(r"\\?\u2400|\x00", val)
+    return ", ".join(p.strip() for p in parts if p.strip())
+
 
 COVER_NAMES = [
     "cover.jpg",
@@ -138,11 +157,6 @@ def _init_beets():
 @app.route("/")
 def index():
     return render_template("index.html")
-
-
-@app.route("/logo.svg")
-def logo():
-    return send_file("/app/logo.svg", mimetype="image/svg+xml")
 
 
 # ---------------------------------------------------------------------------
@@ -422,6 +436,7 @@ def album_detail(album_id):
 
     tracks = []
     for it in items:
+        item_path = _decode_path(it["path"]) if it["path"] else None
         tracks.append(
             {
                 "id": it["id"],
@@ -433,6 +448,7 @@ def album_detail(album_id):
                 "format": it["format"],
                 "bitrate": it["bitrate"],
                 "samplerate": it["samplerate"],
+                "has_lrc": bool(_find_lrc_file(item_path)),
             }
         )
 
@@ -441,6 +457,7 @@ def album_detail(album_id):
         genre = a["genres"] or ""
     if not genre and "genre" in a.keys():
         genre = a["genre"] or ""
+    genre = _format_genre(genre)
 
     return jsonify(
         {
@@ -732,15 +749,42 @@ def track_tags(album_id, item_id):
 # ---------------------------------------------------------------------------
 
 
+def _take_snapshot():
+    """Snapshot current items {id: (title, artist, album_id)} from the DB."""
+    try:
+        conn = _get_ro_conn()
+        rows = conn.execute("SELECT id, title, artist, album_id FROM items").fetchall()
+        conn.close()
+        return {r["id"]: (r["title"], r["artist"], r["album_id"]) for r in rows}
+    except Exception:
+        return {}
+
+
+def _compute_scan_diff(before, after):
+    """Compare snapshots and return added/removed lists."""
+    before_ids = set(before.keys())
+    after_ids = set(after.keys())
+    added = []
+    for item_id in sorted(after_ids - before_ids):
+        title, artist, _ = after[item_id]
+        added.append({"id": item_id, "title": title, "artist": artist})
+    removed = []
+    for item_id in sorted(before_ids - after_ids):
+        title, artist, _ = before[item_id]
+        removed.append({"id": item_id, "title": title, "artist": artist})
+    return added, removed
+
+
 @app.route("/api/rescan", methods=["POST"])
 def rescan():
     from flask import request
 
-    global _rescan_proc
+    global _rescan_proc, _rescan_snapshot
     mode = request.args.get("mode", "quick")
     with _rescan_lock:
         if _rescan_proc and _rescan_proc.poll() is None:
             return jsonify({"status": "running"}), 409
+        _rescan_snapshot = _take_snapshot()
         inc = "-i" if mode == "quick" else "-I"
         cmd = f"beet -v import -A -C {inc} {IMPORT_DIR} && beet -v update -M"
         log.info("Starting rescan (%s): %s", mode, cmd)
@@ -759,7 +803,13 @@ def rescan_status():
         return jsonify({"status": "idle"})
     if _rescan_proc.poll() is None:
         return jsonify({"status": "running"})
-    return jsonify({"status": "done", "returncode": _rescan_proc.returncode})
+    result = {"status": "done", "returncode": _rescan_proc.returncode}
+    if _rescan_snapshot is not None:
+        after = _take_snapshot()
+        added, removed = _compute_scan_diff(_rescan_snapshot, after)
+        result["added"] = added
+        result["removed"] = removed
+    return jsonify(result)
 
 
 # ---------------------------------------------------------------------------
@@ -816,8 +866,8 @@ def fetch_genre_preview(album_id):
         return jsonify(
             {
                 "status": "ok",
-                "old_genre": old_genre,
-                "new_genre": new_genre,
+                "old_genre": _format_genre(old_genre),
+                "new_genre": _format_genre(new_genre),
             }
         )
 
@@ -859,10 +909,46 @@ def confirm_genre(album_id):
         log.info("Genre written for album_id=%d: %s", album_id, new_genre)
 
         lib._close()
-        return jsonify({"status": "ok", "genre": new_genre})
+        return jsonify({"status": "ok", "genre": _format_genre(new_genre)})
 
     except Exception as e:
         log.exception("Genre confirm failed for album_id=%d", album_id)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/album/<int:album_id>/genre/save", methods=["POST"])
+def save_genre(album_id):
+    """Manually set genre for album and its tracks."""
+    from flask import request
+
+    try:
+        genre = (request.json or {}).get("genre", "").strip()
+        if not genre:
+            return jsonify({"error": "Genre cannot be empty"}), 400
+
+        lib = _init_beets()
+        album = lib.get_album(album_id)
+        if not album:
+            return jsonify({"error": "Album not found"}), 404
+
+        genres_list = [g.strip() for g in genre.split(",") if g.strip()]
+        album.genre = genres_list[0] if genres_list else genre
+        if hasattr(album, "genres"):
+            album.genres = genres_list
+        album.store()
+        for item in album.items():
+            item.genre = genres_list[0] if genres_list else genre
+            if hasattr(item, "genres"):
+                item.genres = genres_list
+            item.store()
+            item.try_write()
+
+        log.info("Genre manually set for album_id=%d: %s", album_id, genre)
+        lib._close()
+        return jsonify({"status": "ok", "genre": genre})
+
+    except Exception as e:
+        log.exception("Genre save failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
 
 
@@ -893,6 +979,7 @@ def _serialize_candidate(idx, album_match):
         "artist": info.artist,
         "album": info.album,
         "year": info.year,
+        "label": getattr(info, "label", "") or "",
         "media": getattr(info, "media", "") or "",
         "data_source": info.data_source,
         "mb_albumid": info.album_id or "",
@@ -1382,6 +1469,39 @@ def embed_lrc_lyrics(album_id, item_id):
 
     except Exception as e:
         log.exception("Embed .lrc failed for item_id=%d", item_id)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/album/<int:album_id>/lyrics/embed", methods=["POST"])
+def embed_all_lrc(album_id):
+    """Embed all external .lrc files for an album into tracks."""
+    try:
+        lib = _init_beets()
+        album = lib.get_album(album_id)
+        if not album:
+            return jsonify({"error": "Album not found"}), 404
+
+        embedded = []
+        for item in album.items():
+            item_path = _decode_path(item.path) if item.path else None
+            lrc_path = _find_lrc_file(item_path)
+            if not lrc_path:
+                continue
+            lrc_text = _read_lrc_file(lrc_path)
+            if not lrc_text:
+                continue
+            item.lyrics = lrc_text
+            item.store()
+            item.try_write()
+            os.remove(lrc_path)
+            embedded.append({"id": item.id, "title": item.title})
+            log.info("Embedded .lrc for item_id=%d: %s", item.id, lrc_path)
+
+        lib._close()
+        return jsonify({"status": "ok", "embedded": embedded})
+
+    except Exception as e:
+        log.exception("Embed all .lrc failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
 
 

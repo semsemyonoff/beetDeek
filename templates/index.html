@@ -1,159 +1,218 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>beetDeck</title>
-<link rel="icon" type="image/svg+xml" href="/logo.svg">
-<link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-<header>
-  <h1 onclick="navigate('')"><img src="/logo.svg" alt="">beetDeck</h1>
-  <div class="header-actions">
-    <div class="search-box">
-      <input type="text" id="search-input" placeholder="Search…" oninput="onSearchInput(this.value)" onkeydown="if(event.key==='Escape'){clearSearch()}">
-      <button class="search-clear" id="search-clear" onclick="clearSearch()">×</button>
-    </div>
-    <button class="btn" id="rescan-quick" onclick="doRescan('quick')">Quick Scan</button>
-    <button class="btn" id="rescan-full" onclick="doRescan('full')">Full Scan</button>
-    <button class="theme-toggle" id="theme-toggle" onclick="cycleTheme()" title="Theme"></button>
-  </div>
-</header>
-<main>
-  <div id="app"><div class="loading">Loading…</div></div>
-</main>
-<script>
-const $ = s => document.querySelector(s);
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>beetDeck</title>
+        <link rel="icon" type="image/svg+xml" href="/static/logo.svg" />
+        <link rel="stylesheet" href="/static/style.css" />
+    </head>
+    <body>
+        <header>
+            <h1 onclick="navigate('')">
+                <img src="/static/logo.svg" alt="" />beetDeck
+            </h1>
+            <div class="header-actions">
+                <div class="search-box">
+                    <input
+                        type="text"
+                        id="search-input"
+                        placeholder="Search…"
+                        oninput="onSearchInput(this.value)"
+                        onkeydown="
+                            if (event.key === 'Escape') {
+                                clearSearch();
+                            }
+                        "
+                    />
+                    <button
+                        class="search-clear"
+                        id="search-clear"
+                        onclick="clearSearch()"
+                    >
+                        ×
+                    </button>
+                </div>
+                <button
+                    class="btn"
+                    id="rescan-quick"
+                    onclick="doRescan('quick')"
+                >
+                    Quick Scan
+                </button>
+                <button class="btn" id="rescan-full" onclick="doRescan('full')">
+                    Full Scan
+                </button>
+                <button
+                    class="theme-toggle"
+                    id="theme-toggle"
+                    onclick="cycleTheme()"
+                    title="Theme"
+                ></button>
+            </div>
+        </header>
+        <div id="scan-results" style="display: none"></div>
+        <main>
+            <div id="app"><div class="loading">Loading…</div></div>
+        </main>
+        <script>
+            const $ = (s) => document.querySelector(s);
 
-/* ---- Theme ---- */
-// mode: 'auto' | 'dark' | 'light'
-let _themeMode = localStorage.getItem('theme') || 'auto';
+            /* ---- Theme ---- */
+            // mode: 'auto' | 'dark' | 'light'
+            let _themeMode = localStorage.getItem("theme") || "auto";
 
-function applyTheme() {
-  let effective;
-  if (_themeMode === 'auto') {
-    effective = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-  } else {
-    effective = _themeMode;
-  }
-  document.documentElement.setAttribute('data-theme', effective);
-  const icons = { auto: '\u25D0', light: '\u2600', dark: '\u263E' };
-  const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = icons[_themeMode];
-}
+            function applyTheme() {
+                let effective;
+                if (_themeMode === "auto") {
+                    effective = window.matchMedia(
+                        "(prefers-color-scheme: light)",
+                    ).matches
+                        ? "light"
+                        : "dark";
+                } else {
+                    effective = _themeMode;
+                }
+                document.documentElement.setAttribute("data-theme", effective);
+                const icons = {
+                    auto: "\u25D0",
+                    light: "\u2600",
+                    dark: "\u263E",
+                };
+                const btn = document.getElementById("theme-toggle");
+                if (btn) btn.textContent = icons[_themeMode];
+            }
 
-function cycleTheme() {
-  const order = ['auto', 'light', 'dark'];
-  _themeMode = order[(order.indexOf(_themeMode) + 1) % 3];
-  localStorage.setItem('theme', _themeMode);
-  applyTheme();
-}
+            function cycleTheme() {
+                const order = ["auto", "light", "dark"];
+                _themeMode = order[(order.indexOf(_themeMode) + 1) % 3];
+                localStorage.setItem("theme", _themeMode);
+                applyTheme();
+            }
 
-window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-  if (_themeMode === 'auto') applyTheme();
-});
+            window
+                .matchMedia("(prefers-color-scheme: light)")
+                .addEventListener("change", () => {
+                    if (_themeMode === "auto") applyTheme();
+                });
 
-applyTheme();
+            applyTheme();
 
-/* ---- Routing ---- */
-function navigate(hash) {
-  location.hash = hash;
-}
+            /* ---- Routing ---- */
+            function navigate(hash) {
+                location.hash = hash;
+            }
 
-window.addEventListener("hashchange", route);
+            window.addEventListener("hashchange", route);
 
-function route() {
-  const h = location.hash.slice(1);
-  if (h.startsWith("album/")) {
-    const id = parseInt(h.split("/")[1]);
-    if (id) loadAlbum(id);
-  } else if (h.startsWith("artist/")) {
-    const name = decodeURIComponent(h.slice(7));
-    if (name) loadArtist(name);
-  } else {
-    loadLibrary();
-  }
-}
+            function route() {
+                const h = location.hash.slice(1);
+                if (h.startsWith("album/")) {
+                    const id = parseInt(h.split("/")[1]);
+                    if (id) loadAlbum(id);
+                } else if (h.startsWith("artist/")) {
+                    const name = decodeURIComponent(h.slice(7));
+                    if (name) loadArtist(name);
+                } else {
+                    loadLibrary();
+                }
+            }
 
-/* ---- Escape ---- */
-function esc(s) {
-  if (s === null || s === undefined) return "";
-  const d = document.createElement("div");
-  d.textContent = String(s);
-  return d.innerHTML;
-}
+            /* ---- Escape ---- */
+            function esc(s) {
+                if (s === null || s === undefined) return "";
+                const d = document.createElement("div");
+                d.textContent = String(s);
+                return d.innerHTML;
+            }
 
-/* ---- Filter ---- */
-let _tagFilter = 'all'; // 'all' | 'tagged' | 'untagged'
+            /* ---- Filter ---- */
+            let _tagFilter = "all"; // 'all' | 'tagged' | 'untagged'
 
-function setFilter(val) {
-  _tagFilter = val;
-  // re-render current view
-  route();
-}
+            function setFilter(val) {
+                _tagFilter = val;
+                // re-render current view
+                route();
+            }
 
-function filterBarHtml() {
-  const opts = [['all','All'],['tagged','Identified'],['untagged','Not identified']];
-  return `<div class="filter-bar">
+            function filterBarHtml() {
+                const opts = [
+                    ["all", "All"],
+                    ["tagged", "Identified"],
+                    ["untagged", "Not identified"],
+                ];
+                return `<div class="filter-bar">
     <span class="filter-label">Show:</span>
-    ${opts.map(([v,l]) =>
-      `<button class="filter-btn${_tagFilter===v?' active':''}" onclick="setFilter('${v}')">${l}</button>`
-    ).join('')}
+    ${opts
+        .map(
+            ([v, l]) =>
+                `<button class="filter-btn${_tagFilter === v ? " active" : ""}" onclick="setFilter('${v}')">${l}</button>`,
+        )
+        .join("")}
     <span class="filter-spacer"></span>
     <button class="filter-btn" id="toggle-all-btn" onclick="toggleAllArtists()">Expand all</button>
   </div>`;
-}
+            }
 
-function toggleAllArtists() {
-  const artists = document.querySelectorAll('#app .artist');
-  const anyOpen = [...artists].some(a => a.classList.contains('open'));
-  artists.forEach(a => a.classList.toggle('open', !anyOpen));
-  const btn = document.getElementById('toggle-all-btn');
-  if (btn) btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-}
+            function toggleAllArtists() {
+                const artists = document.querySelectorAll("#app .artist");
+                const anyOpen = [...artists].some((a) =>
+                    a.classList.contains("open"),
+                );
+                artists.forEach((a) => a.classList.toggle("open", !anyOpen));
+                const btn = document.getElementById("toggle-all-btn");
+                if (btn)
+                    btn.textContent = anyOpen ? "Expand all" : "Collapse all";
+            }
 
-function filterAlbums(albums) {
-  if (_tagFilter === 'all') return albums;
-  return albums.filter(al => _tagFilter === 'tagged' ? al.tagged : !al.tagged);
-}
+            function filterAlbums(albums) {
+                if (_tagFilter === "all") return albums;
+                return albums.filter((al) =>
+                    _tagFilter === "tagged" ? al.tagged : !al.tagged,
+                );
+            }
 
-/* ---- Library ---- */
-let _libraryCache = null;
+            /* ---- Library ---- */
+            let _libraryCache = null;
 
-async function loadLibrary() {
-  if (_libraryCache) { renderLibrary(_libraryCache); return; }
-  $("#app").innerHTML = '<div class="loading">Loading library…</div>';
-  try {
-    const r = await fetch("/api/library");
-    if (r.status === 503) {
-      renderNotInitialized();
-      return;
-    }
-    if (!r.ok) throw new Error(r.statusText);
-    _libraryCache = await r.json();
-    if (_libraryCache.length === 0) {
-      renderEmpty();
-      return;
-    }
-    renderLibrary(_libraryCache);
-  } catch (e) {
-    $("#app").innerHTML = `<div class="error">Failed to load: ${esc(e.message)}</div>`;
-  }
-}
+            async function loadLibrary() {
+                if (_libraryCache) {
+                    renderLibrary(_libraryCache);
+                    return;
+                }
+                $("#app").innerHTML =
+                    '<div class="loading">Loading library…</div>';
+                try {
+                    const r = await fetch("/api/library");
+                    if (r.status === 503) {
+                        renderNotInitialized();
+                        return;
+                    }
+                    if (!r.ok) throw new Error(r.statusText);
+                    _libraryCache = await r.json();
+                    if (_libraryCache.length === 0) {
+                        renderEmpty();
+                        return;
+                    }
+                    renderLibrary(_libraryCache);
+                } catch (e) {
+                    $("#app").innerHTML =
+                        `<div class="error">Failed to load: ${esc(e.message)}</div>`;
+                }
+            }
 
-function renderNotInitialized() {
-  $("#app").innerHTML = `
+            function renderNotInitialized() {
+                $("#app").innerHTML = `
     <div class="empty-state">
       <div class="empty-icon">♪</div>
       <h2>Library not initialized</h2>
       <p>The beets database has not been created yet.<br>Run a full scan to import your music library.</p>
       <button class="btn btn-accent btn-lg" onclick="doRescan('full')">Full Scan</button>
     </div>`;
-}
+            }
 
-function renderEmpty() {
-  $("#app").innerHTML = `
+            function renderEmpty() {
+                $("#app").innerHTML = `
     <div class="empty-state">
       <div class="empty-icon">♪</div>
       <h2>Library is empty</h2>
@@ -163,16 +222,20 @@ function renderEmpty() {
         <button class="btn btn-lg" onclick="doRescan('quick')">Quick Scan</button>
       </div>
     </div>`;
-}
+            }
 
-function renderLibrary(artists) {
-  // Apply filter per artist
-  const filtered = artists.map(a => ({...a, albums: filterAlbums(a.albums)}))
-    .filter(a => a.albums.length > 0);
-  const total = filtered.reduce((s, a) => s + a.albums.length, 0);
-  let html = filterBarHtml();
-  html += `<div class="stats">${filtered.length} artists · ${total} albums</div>`;
-  html += filtered.map(a => `
+            function renderLibrary(artists) {
+                document.title = "beetDeck";
+                // Apply filter per artist
+                const filtered = artists
+                    .map((a) => ({ ...a, albums: filterAlbums(a.albums) }))
+                    .filter((a) => a.albums.length > 0);
+                const total = filtered.reduce((s, a) => s + a.albums.length, 0);
+                let html = filterBarHtml();
+                html += `<div class="stats">${filtered.length} artists · ${total} albums</div>`;
+                html += filtered
+                    .map(
+                        (a) => `
     <div class="artist">
       <div class="artist-header" onclick="this.parentElement.classList.toggle('open')">
         <span class="arrow">▶</span>
@@ -180,200 +243,246 @@ function renderLibrary(artists) {
         <span class="album-count">${a.albums.length}</span>
       </div>
       <div class="albums">
-        ${a.albums.map(al => `
+        ${a.albums
+            .map(
+                (al) => `
           <div class="album-row">
-            ${al.has_cover
-              ? `<img class="album-thumb" src="/api/album/${al.id}/cover" loading="lazy" alt="">`
-              : '<div class="album-thumb-empty">♪</div>'}
-            ${al.tagged ? '<span class="check">✓</span>' : ''}
+            ${
+                al.has_cover
+                    ? `<img class="album-thumb" src="/api/album/${al.id}/cover" loading="lazy" alt="">`
+                    : '<div class="album-thumb-empty">♪</div>'
+            }
+            ${al.tagged ? '<span class="check">✓</span>' : ""}
             <a class="album-link" href="#album/${al.id}">${esc(al.album)}</a>
             ${al.year ? `<span class="album-year">${al.year}</span>` : ""}
           </div>
-        `).join("")}
+        `,
+            )
+            .join("")}
       </div>
     </div>
-  `).join("");
-  $("#app").innerHTML = html;
-}
+  `,
+                    )
+                    .join("");
+                $("#app").innerHTML = html;
+            }
 
-/* ---- Search ---- */
-let _searchTimer = null;
-let _lastSearchQuery = '';
+            /* ---- Search ---- */
+            let _searchTimer = null;
+            let _lastSearchQuery = "";
 
-function onSearchInput(val) {
-  const q = val.trim();
-  document.getElementById('search-clear').style.display = q ? 'block' : 'none';
-  clearTimeout(_searchTimer);
-  if (!q) {
-    _lastSearchQuery = '';
-    // restore current view
-    route();
-    return;
-  }
-  _searchTimer = setTimeout(() => doSearch(q), 250);
-}
+            function onSearchInput(val) {
+                const q = val.trim();
+                document.getElementById("search-clear").style.display = q
+                    ? "block"
+                    : "none";
+                clearTimeout(_searchTimer);
+                if (!q) {
+                    _lastSearchQuery = "";
+                    // restore current view
+                    route();
+                    return;
+                }
+                _searchTimer = setTimeout(() => doSearch(q), 250);
+            }
 
-function clearSearch() {
-  const input = document.getElementById('search-input');
-  input.value = '';
-  document.getElementById('search-clear').style.display = 'none';
-  _lastSearchQuery = '';
-  route();
-}
+            function clearSearch() {
+                const input = document.getElementById("search-input");
+                input.value = "";
+                document.getElementById("search-clear").style.display = "none";
+                _lastSearchQuery = "";
+                route();
+            }
 
-async function doSearch(q) {
-  if (q === _lastSearchQuery) return;
-  _lastSearchQuery = q;
-  try {
-    const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-    if (!r.ok) throw new Error(r.statusText);
-    const data = await r.json();
-    // only render if query hasn't changed while fetching
-    if (q !== _lastSearchQuery) return;
-    renderSearchResults(data, q);
-  } catch (e) {
-    $("#app").innerHTML = `<div class="error">Search failed: ${esc(e.message)}</div>`;
-  }
-}
+            async function doSearch(q) {
+                if (q === _lastSearchQuery) return;
+                _lastSearchQuery = q;
+                try {
+                    const r = await fetch(
+                        `/api/search?q=${encodeURIComponent(q)}`,
+                    );
+                    if (!r.ok) throw new Error(r.statusText);
+                    const data = await r.json();
+                    // only render if query hasn't changed while fetching
+                    if (q !== _lastSearchQuery) return;
+                    renderSearchResults(data, q);
+                } catch (e) {
+                    $("#app").innerHTML =
+                        `<div class="error">Search failed: ${esc(e.message)}</div>`;
+                }
+            }
 
-function renderSearchResults(data, q) {
-  const total = data.artists.length + data.albums.length + data.tracks.length;
-  if (!total) {
-    $("#app").innerHTML = `<div class="search-no-results">No results for "${esc(q)}"</div>`;
-    return;
-  }
-  let html = '<div class="search-results">';
+            function renderSearchResults(data, q) {
+                const total =
+                    data.artists.length +
+                    data.albums.length +
+                    data.tracks.length;
+                if (!total) {
+                    $("#app").innerHTML =
+                        `<div class="search-no-results">No results for "${esc(q)}"</div>`;
+                    return;
+                }
+                let html = '<div class="search-results">';
 
-  if (data.artists.length) {
-    html += `<h3>Artists (${data.artists.length})</h3>`;
-    data.artists.forEach(name => {
-      html += `<div class="search-item" data-artist="${esc(name)}" onclick="goToArtist(this.dataset.artist)">
+                if (data.artists.length) {
+                    html += `<h3>Artists (${data.artists.length})</h3>`;
+                    data.artists.forEach((name) => {
+                        html += `<div class="search-item" data-artist="${esc(name)}" onclick="goToArtist(this.dataset.artist)">
         <span class="si-main">${highlight(name, q)}</span>
       </div>`;
-    });
-  }
+                    });
+                }
 
-  if (data.albums.length) {
-    html += `<h3>Albums (${data.albums.length})</h3>`;
-    data.albums.forEach(al => {
-      html += `<div class="search-item" onclick="clearSearch(); navigate('album/${al.id}')">
-        ${al.has_cover
-          ? `<img class="album-thumb" src="/api/album/${al.id}/cover" loading="lazy" alt="">`
-          : '<div class="album-thumb-empty">♪</div>'}
+                if (data.albums.length) {
+                    html += `<h3>Albums (${data.albums.length})</h3>`;
+                    data.albums.forEach((al) => {
+                        html += `<div class="search-item" onclick="clearSearch(); navigate('album/${al.id}')">
+        ${
+            al.has_cover
+                ? `<img class="album-thumb" src="/api/album/${al.id}/cover" loading="lazy" alt="">`
+                : '<div class="album-thumb-empty">♪</div>'
+        }
         <span class="si-main">${highlight(al.album, q)}</span>
-        <span class="si-sub">${esc(al.albumartist)}${al.year ? ' · ' + al.year : ''}</span>
+        <span class="si-sub">${esc(al.albumartist)}${al.year ? " · " + al.year : ""}</span>
       </div>`;
-    });
-  }
+                    });
+                }
 
-  if (data.tracks.length) {
-    html += `<h3>Tracks (${data.tracks.length})</h3>`;
-    data.tracks.forEach(t => {
-      html += `<div class="search-item" onclick="clearSearch(); navigate('album/${t.album_id}')">
+                if (data.tracks.length) {
+                    html += `<h3>Tracks (${data.tracks.length})</h3>`;
+                    data.tracks.forEach((t) => {
+                        html += `<div class="search-item" onclick="clearSearch(); navigate('album/${t.album_id}')">
         <span class="si-main">${highlight(t.title, q)}</span>
         <span class="si-sub">${esc(t.artist)} — ${esc(t.album)}</span>
       </div>`;
-    });
-  }
+                    });
+                }
 
-  html += '</div>';
-  $("#app").innerHTML = html;
-}
+                html += "</div>";
+                $("#app").innerHTML = html;
+            }
 
-function highlight(text, q) {
-  if (!q) return esc(text);
-  const escaped = esc(text);
-  const qEsc = esc(q);
-  const re = new RegExp('(' + qEsc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-  return escaped.replace(re, '<span style="color:#e94560;font-weight:600">$1</span>');
-}
+            function highlight(text, q) {
+                if (!q) return esc(text);
+                const escaped = esc(text);
+                const qEsc = esc(q);
+                const re = new RegExp(
+                    "(" + qEsc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")",
+                    "gi",
+                );
+                return escaped.replace(
+                    re,
+                    '<span style="color:#e94560;font-weight:600">$1</span>',
+                );
+            }
 
-function goToArtist(name) {
-  clearSearch();
-  navigate('artist/' + encodeURIComponent(name));
-}
+            function goToArtist(name) {
+                clearSearch();
+                navigate("artist/" + encodeURIComponent(name));
+            }
 
-/* ---- Artist page ---- */
-let _artistCache = {};
+            /* ---- Artist page ---- */
+            let _artistCache = {};
 
-async function loadArtist(name) {
-  if (_artistCache[name]) { renderArtist(_artistCache[name]); return; }
-  $("#app").innerHTML = '<div class="loading">Loading artist…</div>';
-  try {
-    const r = await fetch(`/api/artist?name=${encodeURIComponent(name)}`);
-    if (!r.ok) throw new Error(r.statusText);
-    _artistCache[name] = await r.json();
-    renderArtist(_artistCache[name]);
-  } catch (e) {
-    $("#app").innerHTML = `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+            async function loadArtist(name) {
+                if (_artistCache[name]) {
+                    renderArtist(_artistCache[name]);
+                    return;
+                }
+                $("#app").innerHTML =
+                    '<div class="loading">Loading artist…</div>';
+                try {
+                    const r = await fetch(
+                        `/api/artist?name=${encodeURIComponent(name)}`,
+                    );
+                    if (!r.ok) throw new Error(r.statusText);
+                    _artistCache[name] = await r.json();
+                    renderArtist(_artistCache[name]);
+                } catch (e) {
+                    $("#app").innerHTML =
+                        `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-function renderArtist(data) {
-  const albums = filterAlbums(data.albums);
-  let html = `
+            function renderArtist(data) {
+                document.title = `${data.artist} — beetDeck`;
+                const albums = filterAlbums(data.albums);
+                let html = `
     <span class="back-link" onclick="navigate('')">← Library</span>
     <div class="artist-page-header">
       <h2>${esc(data.artist)}</h2>
-      <div class="meta">${albums.length} album${albums.length !== 1 ? 's' : ''}</div>
+      <div class="meta">${albums.length} album${albums.length !== 1 ? "s" : ""}</div>
     </div>
     ${filterBarHtml()}
     <div class="album-grid">
-      ${albums.map(al => `
+      ${albums
+          .map(
+              (al) => `
         <a class="album-card" href="#album/${al.id}">
-          ${al.has_cover
-            ? `<img class="album-card-cover" src="/api/album/${al.id}/cover" loading="lazy" alt="">`
-            : '<div class="album-card-nocover">♪</div>'}
+          ${
+              al.has_cover
+                  ? `<img class="album-card-cover" src="/api/album/${al.id}/cover" loading="lazy" alt="">`
+                  : '<div class="album-card-nocover">♪</div>'
+          }
           <div class="album-card-info">
             <div class="album-card-title" title="${esc(al.album)}">${esc(al.album)}</div>
-            <div class="album-card-year">${al.year || ''}</div>
+            <div class="album-card-year">${al.year || ""}</div>
             <div class="album-card-badges">
-              ${al.tagged ? '<span class="check">✓</span>' : ''}
+              ${al.tagged ? '<span class="check">✓</span>' : ""}
             </div>
           </div>
         </a>
-      `).join("")}
+      `,
+          )
+          .join("")}
     </div>`;
-  $("#app").innerHTML = html;
-}
+                $("#app").innerHTML = html;
+            }
 
-/* ---- Album detail ---- */
-let _albumData = null;
+            /* ---- Album detail ---- */
+            let _albumData = null;
 
-async function loadAlbum(id) {
-  $("#app").innerHTML = '<div class="loading">Loading album…</div>';
-  try {
-    const r = await fetch(`/api/album/${id}`);
-    if (!r.ok) throw new Error(r.statusText);
-    _albumData = await r.json();
-    renderAlbum(_albumData);
-  } catch (e) {
-    $("#app").innerHTML = `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+            async function loadAlbum(id) {
+                $("#app").innerHTML =
+                    '<div class="loading">Loading album…</div>';
+                try {
+                    const r = await fetch(`/api/album/${id}`);
+                    if (!r.ok) throw new Error(r.statusText);
+                    _albumData = await r.json();
+                    renderAlbum(_albumData);
+                } catch (e) {
+                    $("#app").innerHTML =
+                        `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-function renderAlbum(a) {
-  const coverHtml = a.has_cover
-    ? `<img class="cover-art" src="/api/album/${a.id}/cover" alt="Cover" onclick="openLightbox('/api/album/${a.id}/cover')">`
-    : `<div class="cover-placeholder">♪</div>`;
+            function renderAlbum(a) {
+                document.title = `${a.album} — ${a.albumartist} — beetDeck`;
+                const coverHtml = a.has_cover
+                    ? `<img class="cover-art" src="/api/album/${a.id}/cover" alt="Cover" onclick="openLightbox('/api/album/${a.id}/cover')">`
+                    : `<div class="cover-placeholder">♪</div>`;
 
-  let html = `
+                let html = `
     <span class="back-link" onclick="navigate('')">← Library</span>
     <span class="back-link" onclick="navigate('artist/${encodeURIComponent(a.albumartist)}')" style="margin-left:1rem">← ${esc(a.albumartist)}</span>
     <div class="album-header">
       ${coverHtml}
       <div class="album-info">
-        <h2>${esc(a.album)} ${a.tagged ? '<span class="check">✓</span>' : ''}</h2>
-        <div class="meta"><a href="#artist/${encodeURIComponent(a.albumartist)}">${esc(a.albumartist)}</a>${a.year ? ` · ${a.year}` : ''}</div>
-        ${a.genre ? `<div class="meta">${esc(a.genre)}</div>` : ''}
-        ${a.label ? `<div class="meta">${esc(a.label)}</div>` : ''}
-        ${a.mb_albumid ? `<div class="meta">MB: <a href="https://musicbrainz.org/release/${esc(a.mb_albumid)}" target="_blank" rel="noopener">${esc(a.mb_albumid)}</a></div>` : ''}
+        <h2>${esc(a.album)} ${a.tagged ? '<span class="check">✓</span>' : ""}</h2>
+        <div class="meta"><a href="#artist/${encodeURIComponent(a.albumartist)}">${esc(a.albumartist)}</a>${a.year ? ` · ${a.year}` : ""}</div>
+        ${a.genre ? `<div class="meta">${esc(a.genre.replace(/\\?\u2400|\0/g, ", "))}</div>` : ""}
+        ${a.label ? `<div class="meta">${esc(a.label)}</div>` : ""}
+        ${a.mb_albumid ? `<div class="meta">MB: <a href="https://musicbrainz.org/release/${esc(a.mb_albumid)}" target="_blank" rel="noopener">${esc(a.mb_albumid)}</a></div>` : ""}
         <div class="path">${esc(a.path)}</div>
         <div class="album-actions">
           <div class="action-group">
             <span class="action-group-label">Tags</span>
             <button class="btn btn-sm" onclick="toggleIdentify(${a.id})">Identify</button>
-            <button class="btn btn-sm" id="genre-btn" onclick="fetchGenrePreview(${a.id})">Fetch Genre</button>
+          </div>
+          <div class="action-group">
+            <span class="action-group-label">Genre</span>
+            <button class="btn btn-sm" id="genre-btn" onclick="fetchGenrePreview(${a.id})">Fetch</button>
+            <button class="btn btn-sm" onclick="openGenreEditor(${a.id}, '${esc(a.genre ? a.genre.replace(/\\?\u2400|\0/g, ", ").replace(/'/g, "\\'") : "")}')">Edit</button>
           </div>
           <div class="action-group">
             <span class="action-group-label">Cover</span>
@@ -383,6 +492,12 @@ function renderAlbum(a) {
           <div class="action-group">
             <span class="action-group-label">Lyrics</span>
             <button class="btn btn-sm" id="lyrics-btn" onclick="fetchAlbumLyrics(${a.id})">Fetch All</button>
+            ${(() => {
+                const lrcCount = a.tracks.filter((t) => t.has_lrc).length;
+                return lrcCount
+                    ? `<button class="btn btn-sm btn-lyrics" id="embed-all-btn" onclick="embedAllLrc(${a.id})">Embed All (${lrcCount})</button>`
+                    : "";
+            })()}
           </div>
         </div>
       </div>
@@ -396,9 +511,11 @@ function renderAlbum(a) {
         <th>#</th><th>Title</th><th>Artist</th><th style="text-align:right">Duration</th><th></th>
       </tr></thead>
       <tbody>
-        ${a.tracks.map(t => `
+        ${a.tracks
+            .map(
+                (t) => `
           <tr>
-            <td class="track-num">${t.disc > 1 ? t.disc + '-' : ''}${t.track}</td>
+            <td class="track-num">${t.disc > 1 ? t.disc + "-" : ""}${t.track}</td>
             <td>${esc(t.title)}</td>
             <td style="color:#888">${esc(t.artist)}</td>
             <td class="track-length">${t.length}</td>
@@ -419,51 +536,55 @@ function renderAlbum(a) {
           <tr class="tag-row" id="tags-${t.id}" style="display:none">
             <td colspan="5"><div class="tag-panel" id="tag-panel-${t.id}">Loading…</div></td>
           </tr>
-        `).join("")}
+        `,
+            )
+            .join("")}
       </tbody>
     </table>
   `;
-  $("#app").innerHTML = html;
-}
+                $("#app").innerHTML = html;
+            }
 
-/* ---- Track tags ---- */
-async function toggleTags(albumId, trackId, el) {
-  const row = $(`#tags-${trackId}`);
-  if (row.style.display !== "none") {
-    row.style.display = "none";
-    return;
-  }
-  row.style.display = "";
-  const panel = $(`#tag-panel-${trackId}`);
-  try {
-    const r = await fetch(`/api/album/${albumId}/track/${trackId}/tags`);
-    const tags = await r.json();
-    let t = '<table>';
-    for (const [k, v] of Object.entries(tags)) {
-      t += `<tr><td class="tag-key">${esc(k)}</td><td class="tag-val">${esc(v)}</td></tr>`;
-    }
-    t += '</table>';
-    panel.innerHTML = t;
-  } catch (e) {
-    panel.innerHTML = `<span class="error">${esc(e.message)}</span>`;
-  }
-}
+            /* ---- Track tags ---- */
+            async function toggleTags(albumId, trackId, el) {
+                const row = $(`#tags-${trackId}`);
+                if (row.style.display !== "none") {
+                    row.style.display = "none";
+                    return;
+                }
+                row.style.display = "";
+                const panel = $(`#tag-panel-${trackId}`);
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/track/${trackId}/tags`,
+                    );
+                    const tags = await r.json();
+                    let t = "<table>";
+                    for (const [k, v] of Object.entries(tags)) {
+                        t += `<tr><td class="tag-key">${esc(k)}</td><td class="tag-val">${esc(v)}</td></tr>`;
+                    }
+                    t += "</table>";
+                    panel.innerHTML = t;
+                } catch (e) {
+                    panel.innerHTML = `<span class="error">${esc(e.message)}</span>`;
+                }
+            }
 
-/* ---- Identify ---- */
-let _identifyShown = false;
-let _identifyPoll = null;
-let _selectedCandidate = null;
+            /* ---- Identify ---- */
+            let _identifyShown = false;
+            let _identifyPoll = null;
+            let _selectedCandidate = null;
 
-function toggleIdentify(albumId) {
-  const area = $("#identify-area");
-  if (_identifyShown) {
-    area.innerHTML = "";
-    _identifyShown = false;
-    return;
-  }
-  _identifyShown = true;
-  _selectedCandidate = null;
-  area.innerHTML = `
+            function toggleIdentify(albumId) {
+                const area = $("#identify-area");
+                if (_identifyShown) {
+                    area.innerHTML = "";
+                    _identifyShown = false;
+                    return;
+                }
+                _identifyShown = true;
+                _selectedCandidate = null;
+                area.innerHTML = `
     <div class="identify-form">
       <div class="form-row">
         <div>
@@ -481,240 +602,323 @@ function toggleIdentify(albumId) {
     </div>
     <div id="identify-results"></div>
   `;
-}
+            }
 
-async function startIdentify(albumId) {
-  const results = $("#identify-results");
-  results.innerHTML = '<div class="loading"><span class="spinner"></span> Searching sources…</div>';
+            async function startIdentify(albumId) {
+                const results = $("#identify-results");
+                results.innerHTML =
+                    '<div class="loading"><span class="spinner"></span> Searching sources…</div>';
 
-  const body = {
-    artist: $("#id-artist").value.trim(),
-    album: $("#id-album").value.trim(),
-    search_id: $("#id-mbid").value.trim(),
-  };
+                const body = {
+                    artist: $("#id-artist").value.trim(),
+                    album: $("#id-album").value.trim(),
+                    search_id: $("#id-mbid").value.trim(),
+                };
 
-  try {
-    const r = await fetch(`/api/album/${albumId}/identify`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(body),
-    });
-    await r.json();
-    _identifyPoll = setInterval(() => pollIdentify(albumId), 2000);
-  } catch (e) {
-    results.innerHTML = `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+                try {
+                    const r = await fetch(`/api/album/${albumId}/identify`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body),
+                    });
+                    await r.json();
+                    _identifyPoll = setInterval(
+                        () => pollIdentify(albumId),
+                        2000,
+                    );
+                } catch (e) {
+                    results.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-async function pollIdentify(albumId) {
-  try {
-    const r = await fetch(`/api/album/${albumId}/identify/status`);
-    const d = await r.json();
-    if (d.status === "running") return;
-    clearInterval(_identifyPoll);
-    if (d.status === "error") {
-      $("#identify-results").innerHTML = `<div class="error">${esc(d.error)}</div>`;
-      return;
-    }
-    renderCandidates(albumId, d.candidates || []);
-  } catch {
-    clearInterval(_identifyPoll);
-  }
-}
+            async function pollIdentify(albumId) {
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/identify/status`,
+                    );
+                    const d = await r.json();
+                    if (d.status === "running") return;
+                    clearInterval(_identifyPoll);
+                    if (d.status === "error") {
+                        $("#identify-results").innerHTML =
+                            `<div class="error">${esc(d.error)}</div>`;
+                        return;
+                    }
+                    renderCandidates(albumId, d.candidates || []);
+                } catch {
+                    clearInterval(_identifyPoll);
+                }
+            }
 
-function distClass(d) {
-  if (d <= 0.1) return "dist-good";
-  if (d <= 0.3) return "dist-ok";
-  return "dist-bad";
-}
+            function distClass(d) {
+                if (d <= 0.1) return "dist-good";
+                if (d <= 0.3) return "dist-ok";
+                return "dist-bad";
+            }
 
-function renderCandidates(albumId, candidates) {
-  if (!candidates.length) {
-    $("#identify-results").innerHTML = '<div class="loading">No matches found</div>';
-    return;
-  }
-  _selectedCandidate = null;
-  let html = '<div class="candidates">';
-  html += candidates.map(c => `
+            function renderCandidates(albumId, candidates) {
+                if (!candidates.length) {
+                    $("#identify-results").innerHTML =
+                        '<div class="loading">No matches found</div>';
+                    return;
+                }
+                _selectedCandidate = null;
+                let html = '<div class="candidates">';
+                html += candidates
+                    .map(
+                        (c) => `
     <div class="candidate" id="cand-${c.index}" onclick="selectCandidate(${c.index})">
       <div class="c-title">${esc(c.artist)} — ${esc(c.album)}</div>
       <div class="c-meta">
         <span class="c-dist ${distClass(c.distance)}">${(100 - c.distance * 100).toFixed(1)}%</span>
-        ${c.year ? `· ${c.year}` : ''}
-        ${c.media ? `· ${esc(c.media)}` : ''}
+        ${c.year ? `· ${c.year}` : ""}
+        ${c.media ? `· ${esc(c.media)}` : ""}
         · ${c.track_count} tracks
         · ${esc(c.data_source)}
-        ${c.mb_albumid ? `· <a href="https://musicbrainz.org/release/${esc(c.mb_albumid)}" target="_blank" rel="noopener" style="color:#555" onclick="event.stopPropagation()">${esc(c.mb_albumid)}</a>` : ''}
+        ${c.label ? `· ${esc(c.label)}` : ""}
+        ${c.mb_albumid ? `· <a href="https://musicbrainz.org/release/${esc(c.mb_albumid)}" target="_blank" rel="noopener" style="color:#555" onclick="event.stopPropagation()">${esc(c.mb_albumid)}</a>` : ""}
       </div>
     </div>
-  `).join("");
-  html += `<button class="btn btn-accent" id="apply-btn" onclick="applyMatch(${albumId})" disabled>Apply Selected</button>`;
-  html += '</div><div id="diff-area"></div>';
-  $("#identify-results").innerHTML = html;
-}
+  `,
+                    )
+                    .join("");
+                html += `<button class="btn btn-accent" id="apply-btn" onclick="applyMatch(${albumId})" disabled>Apply Selected</button>`;
+                html += '</div><div id="diff-area"></div>';
+                $("#identify-results").innerHTML = html;
+            }
 
-function selectCandidate(idx) {
-  document.querySelectorAll(".candidate").forEach(el => el.classList.remove("selected"));
-  const el = $(`#cand-${idx}`);
-  if (el) el.classList.add("selected");
-  _selectedCandidate = idx;
-  const btn = $("#apply-btn");
-  if (btn) btn.disabled = false;
-}
+            function selectCandidate(idx) {
+                document
+                    .querySelectorAll(".candidate")
+                    .forEach((el) => el.classList.remove("selected"));
+                const el = $(`#cand-${idx}`);
+                if (el) el.classList.add("selected");
+                _selectedCandidate = idx;
+                const btn = $("#apply-btn");
+                if (btn) btn.disabled = false;
+            }
 
-async function applyMatch(albumId) {
-  if (_selectedCandidate === null) return;
-  const diffArea = $("#diff-area");
-  diffArea.innerHTML = '<div class="loading"><span class="spinner"></span> Computing diff…</div>';
+            async function applyMatch(albumId) {
+                if (_selectedCandidate === null) return;
+                const diffArea = $("#diff-area");
+                diffArea.innerHTML =
+                    '<div class="loading"><span class="spinner"></span> Computing diff…</div>';
 
-  try {
-    const r = await fetch(`/api/album/${albumId}/apply`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({candidate_index: _selectedCandidate}),
-    });
-    const diff = await r.json();
-    if (diff.error) {
-      diffArea.innerHTML = `<div class="error">${esc(diff.error)}</div>`;
-      return;
-    }
-    renderDiff(albumId, diff);
-  } catch (e) {
-    diffArea.innerHTML = `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+                try {
+                    const r = await fetch(`/api/album/${albumId}/apply`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            candidate_index: _selectedCandidate,
+                        }),
+                    });
+                    const diff = await r.json();
+                    if (diff.error) {
+                        diffArea.innerHTML = `<div class="error">${esc(diff.error)}</div>`;
+                        return;
+                    }
+                    renderDiff(albumId, diff);
+                } catch (e) {
+                    diffArea.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-function renderDiff(albumId, diff) {
-  let html = '<div class="diff-section"><h3>Album Changes</h3>';
-  html += '<table class="diff-table"><thead><tr><th>Field</th><th>Current</th><th>New</th></tr></thead><tbody>';
-  for (const [field, vals] of Object.entries(diff.album)) {
-    const changed = String(vals.old) !== String(vals.new);
-    const cls = changed ? "diff-changed" : "diff-same";
-    html += `<tr>
+            function renderDiff(albumId, diff) {
+                let html = '<div class="diff-section"><h3>Album Changes</h3>';
+                html +=
+                    '<table class="diff-table"><thead><tr><th>Field</th><th>Current</th><th>New</th></tr></thead><tbody>';
+                for (const [field, vals] of Object.entries(diff.album)) {
+                    const changed = String(vals.old) !== String(vals.new);
+                    const cls = changed ? "diff-changed" : "diff-same";
+                    html += `<tr>
       <td>${esc(field)}</td>
       <td class="${cls}">${esc(vals.old)}</td>
       <td class="${cls}">${esc(vals.new)}</td>
     </tr>`;
-  }
-  html += '</tbody></table></div>';
+                }
+                html += "</tbody></table></div>";
 
-  html += '<div class="diff-section"><h3>Track Changes</h3>';
-  html += '<table class="diff-table"><thead><tr><th>#</th><th>Field</th><th>Current</th><th>New</th></tr></thead><tbody>';
-  for (const t of diff.tracks) {
-    for (const field of ["title", "artist"]) {
-      const vals = t[field];
-      if (!vals) continue;
-      const changed = String(vals.old) !== String(vals.new);
-      const cls = changed ? "diff-changed" : "diff-same";
-      html += `<tr>
+                html += '<div class="diff-section"><h3>Track Changes</h3>';
+                html +=
+                    '<table class="diff-table"><thead><tr><th>#</th><th>Field</th><th>Current</th><th>New</th></tr></thead><tbody>';
+                for (const t of diff.tracks) {
+                    for (const field of ["title", "artist"]) {
+                        const vals = t[field];
+                        if (!vals) continue;
+                        const changed = String(vals.old) !== String(vals.new);
+                        const cls = changed ? "diff-changed" : "diff-same";
+                        html += `<tr>
         <td>${t.track}</td>
         <td>${esc(field)}</td>
         <td class="${cls}">${esc(vals.old)}</td>
         <td class="${cls}">${esc(vals.new)}</td>
       </tr>`;
-    }
-  }
-  html += '</tbody></table></div>';
-  html += `<button class="btn btn-accent" onclick="confirmMatch(${albumId}, ${diff.candidate_index})">Confirm & Write Tags</button>`;
+                    }
+                }
+                html += "</tbody></table></div>";
+                html += `<button class="btn btn-accent" onclick="confirmMatch(${albumId}, ${diff.candidate_index})">Confirm & Write Tags</button>`;
 
-  $("#diff-area").innerHTML = html;
-}
+                $("#diff-area").innerHTML = html;
+            }
 
-async function confirmMatch(albumId, candidateIndex) {
-  const diffArea = $("#diff-area");
-  try {
-    const r = await fetch(`/api/album/${albumId}/confirm`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({candidate_index: candidateIndex}),
-    });
-    const d = await r.json();
-    if (d.error) {
-      diffArea.innerHTML += `<div class="error">${esc(d.error)}</div>`;
-      return;
-    }
-    diffArea.innerHTML = '<div style="color:#4ecca3;padding:1rem;text-align:center">✓ Tags written successfully</div>';
-    _identifyShown = false;
-    setTimeout(() => loadAlbum(albumId), 1000);
-  } catch (e) {
-    diffArea.innerHTML += `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+            async function confirmMatch(albumId, candidateIndex) {
+                const diffArea = $("#diff-area");
+                try {
+                    const r = await fetch(`/api/album/${albumId}/confirm`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            candidate_index: candidateIndex,
+                        }),
+                    });
+                    const d = await r.json();
+                    if (d.error) {
+                        diffArea.innerHTML += `<div class="error">${esc(d.error)}</div>`;
+                        return;
+                    }
+                    diffArea.innerHTML =
+                        '<div style="color:#4ecca3;padding:1rem;text-align:center">✓ Tags written successfully</div>';
+                    _identifyShown = false;
+                    setTimeout(() => loadAlbum(albumId), 1000);
+                } catch (e) {
+                    diffArea.innerHTML += `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-/* ---- Rescan ---- */
-let _rescanPoll = null;
+            /* ---- Rescan ---- */
+            let _rescanPoll = null;
 
-function _setScanButtons(disabled, html) {
-  for (const id of ['#rescan-quick', '#rescan-full']) {
-    const b = $(id);
-    b.disabled = disabled;
-    if (html) b.innerHTML = html;
-  }
-}
+            function _setScanButtons(disabled, html) {
+                for (const id of ["#rescan-quick", "#rescan-full"]) {
+                    const b = $(id);
+                    b.disabled = disabled;
+                    if (html) b.innerHTML = html;
+                }
+            }
 
-async function doRescan(mode) {
-  _setScanButtons(true);
-  const label = mode === 'full' ? 'Full' : 'Quick';
-  const active = mode === 'full' ? $('#rescan-full') : $('#rescan-quick');
-  active.innerHTML = `<span class="spinner"></span>${label}…`;
-  try {
-    await fetch(`/api/rescan?mode=${mode}`, { method: "POST" });
-    _rescanPoll = setInterval(pollRescan, 3000);
-  } catch {
-    _setScanButtons(false);
-    $('#rescan-quick').textContent = 'Quick Scan';
-    $('#rescan-full').textContent = 'Full Scan';
-  }
-}
+            async function doRescan(mode) {
+                _setScanButtons(true);
+                const label = mode === "full" ? "Full" : "Quick";
+                const active =
+                    mode === "full" ? $("#rescan-full") : $("#rescan-quick");
+                active.innerHTML = `<span class="spinner"></span>${label}…`;
+                try {
+                    await fetch(`/api/rescan?mode=${mode}`, { method: "POST" });
+                    _rescanPoll = setInterval(pollRescan, 3000);
+                } catch {
+                    _setScanButtons(false);
+                    $("#rescan-quick").textContent = "Quick Scan";
+                    $("#rescan-full").textContent = "Full Scan";
+                }
+            }
 
-async function pollRescan() {
-  try {
-    const r = await fetch("/api/rescan/status");
-    const d = await r.json();
-    if (d.status !== "running") {
-      clearInterval(_rescanPoll);
-      _setScanButtons(false);
-      $('#rescan-quick').textContent = 'Quick Scan';
-      $('#rescan-full').textContent = 'Full Scan';
-      _libraryCache = null; _artistCache = {};
-      if (!location.hash || location.hash === "#") loadLibrary();
-    }
-  } catch {}
-}
+            async function pollRescan() {
+                try {
+                    const r = await fetch("/api/rescan/status");
+                    const d = await r.json();
+                    if (d.status !== "running") {
+                        clearInterval(_rescanPoll);
+                        _setScanButtons(false);
+                        $("#rescan-quick").textContent = "Quick Scan";
+                        $("#rescan-full").textContent = "Full Scan";
+                        _libraryCache = null;
+                        _artistCache = {};
+                        _showScanResults(d);
+                        if (!location.hash || location.hash === "#")
+                            loadLibrary();
+                    }
+                } catch {}
+            }
 
-/* ---- Genre ---- */
-async function fetchGenrePreview(albumId) {
-  const btn = $("#genre-btn");
-  const area = $("#genre-area");
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Querying Last.fm…';
+            function _showScanResults(d) {
+                const el = $("#scan-results");
+                const added = d.added || [];
+                const removed = d.removed || [];
+                if (!added.length && !removed.length) {
+                    el.style.display = "block";
+                    el.innerHTML = `<div class="scan-banner">
+                        Scan complete — no changes
+                        <button class="scan-banner-close" onclick="this.parentElement.parentElement.style.display='none'">×</button>
+                    </div>`;
+                    return;
+                }
+                let summary = "Scan complete — ";
+                const parts = [];
+                if (added.length)
+                    parts.push(`<strong>+${added.length}</strong> added`);
+                if (removed.length)
+                    parts.push(`<strong>-${removed.length}</strong> removed`);
+                summary += parts.join(", ");
 
-  try {
-    const r = await fetch(`/api/album/${albumId}/genre`, { method: "POST" });
-    const d = await r.json();
-    btn.textContent = "Fetch Genre";
-    btn.disabled = false;
+                let details = "";
+                if (added.length) {
+                    details += `<div class="scan-detail-section"><div class="scan-detail-label">Added:</div>`;
+                    details += added
+                        .map(
+                            (t) =>
+                                `<div class="scan-detail-item">+ ${esc(t.artist)} — ${esc(t.title)}</div>`,
+                        )
+                        .join("");
+                    details += `</div>`;
+                }
+                if (removed.length) {
+                    details += `<div class="scan-detail-section"><div class="scan-detail-label">Removed:</div>`;
+                    details += removed
+                        .map(
+                            (t) =>
+                                `<div class="scan-detail-item">- ${esc(t.artist)} — ${esc(t.title)}</div>`,
+                        )
+                        .join("");
+                    details += `</div>`;
+                }
 
-    if (d.error) {
-      area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
-      return;
-    }
+                el.style.display = "block";
+                el.innerHTML = `<div class="scan-banner">
+                    <span class="scan-summary" onclick="this.parentElement.querySelector('.scan-details').classList.toggle('open')" style="cursor:pointer">
+                        ${summary} <span style="font-size:0.75rem;opacity:0.6">▼</span>
+                    </span>
+                    <button class="scan-banner-close" onclick="this.parentElement.parentElement.style.display='none'">×</button>
+                    <div class="scan-details">${details}</div>
+                </div>`;
+            }
 
-    if (!d.new_genre) {
-      area.innerHTML = '<div class="identify-form" style="padding:0.8rem">No genre found on Last.fm</div>';
-      return;
-    }
+            /* ---- Genre ---- */
+            async function fetchGenrePreview(albumId) {
+                const btn = $("#genre-btn");
+                const area = $("#genre-area");
+                btn.disabled = true;
+                btn.innerHTML =
+                    '<span class="spinner"></span>Querying Last.fm…';
 
-    const changed = d.old_genre !== d.new_genre;
-    area.innerHTML = `
+                try {
+                    const r = await fetch(`/api/album/${albumId}/genre`, {
+                        method: "POST",
+                    });
+                    const d = await r.json();
+                    btn.textContent = "Fetch Genre";
+                    btn.disabled = false;
+
+                    if (d.error) {
+                        area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+                        return;
+                    }
+
+                    if (!d.new_genre) {
+                        area.innerHTML =
+                            '<div class="identify-form" style="padding:0.8rem">No genre found on Last.fm</div>';
+                        return;
+                    }
+
+                    const changed = d.old_genre !== d.new_genre;
+                    area.innerHTML = `
       <div class="identify-form">
         <table class="diff-table">
           <thead><tr><th>Field</th><th>Current</th><th>New</th></tr></thead>
           <tbody>
             <tr>
               <td>genre</td>
-              <td class="${changed ? 'diff-changed' : 'diff-same'}">${esc(d.old_genre) || '<em style="color:#555">empty</em>'}</td>
-              <td class="${changed ? 'diff-changed' : 'diff-same'}">${esc(d.new_genre)}</td>
+              <td class="${changed ? "diff-changed" : "diff-same"}">${esc(d.old_genre) || '<em style="color:#555">empty</em>'}</td>
+              <td class="${changed ? "diff-changed" : "diff-same"}">${esc(d.new_genre)}</td>
             </tr>
           </tbody>
         </table>
@@ -724,56 +928,104 @@ async function fetchGenrePreview(albumId) {
         </div>
       </div>
     `;
-  } catch (e) {
-    btn.textContent = "Fetch Genre";
-    btn.disabled = false;
-    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+                } catch (e) {
+                    btn.textContent = "Fetch Genre";
+                    btn.disabled = false;
+                    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-async function confirmGenre(albumId) {
-  const area = $("#genre-area");
-  area.querySelector(".btn-accent").disabled = true;
-  area.querySelector(".btn-accent").innerHTML = '<span class="spinner"></span>Writing…';
+            async function confirmGenre(albumId) {
+                const area = $("#genre-area");
+                area.querySelector(".btn-accent").disabled = true;
+                area.querySelector(".btn-accent").innerHTML =
+                    '<span class="spinner"></span>Writing…';
 
-  try {
-    const r = await fetch(`/api/album/${albumId}/genre/confirm`, { method: "POST" });
-    const d = await r.json();
-    if (d.error) {
-      area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
-      return;
-    }
-    area.innerHTML = `<div style="color:#4ecca3;padding:0.8rem">✓ Genre set to: ${esc(d.genre)}</div>`;
-    setTimeout(() => loadAlbum(albumId), 1500);
-  } catch (e) {
-    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/genre/confirm`,
+                        { method: "POST" },
+                    );
+                    const d = await r.json();
+                    if (d.error) {
+                        area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+                        return;
+                    }
+                    area.innerHTML = `<div style="color:#4ecca3;padding:0.8rem">✓ Genre set to: ${esc(d.genre)}</div>`;
+                    setTimeout(() => loadAlbum(albumId), 1500);
+                } catch (e) {
+                    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-/* ---- Cover Art ---- */
-async function fetchCover(albumId) {
-  const btn = $("#cover-fetch-btn");
-  const area = $("#cover-area");
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Searching…';
+            function openGenreEditor(albumId, currentGenre) {
+                const area = $("#genre-area");
+                area.innerHTML = `
+      <div class="identify-form">
+        <label>Genre</label>
+        <input type="text" id="genre-input" value="${esc(currentGenre)}" placeholder="e.g. Electronic, Synthpop">
+        <div style="margin-top:0.5rem;display:flex;gap:0.5rem">
+          <button class="btn btn-accent" id="genre-save-btn" onclick="saveGenre(${albumId})">Save</button>
+          <button class="btn" onclick="$('#genre-area').innerHTML=''">Cancel</button>
+        </div>
+      </div>`;
+                const input = $("#genre-input");
+                input.focus();
+                input.selectionStart = input.value.length;
+            }
 
-  try {
-    const r = await fetch(`/api/album/${albumId}/cover/fetch`, { method: "POST" });
-    const d = await r.json();
-    btn.textContent = "Fetch Cover";
-    btn.disabled = false;
+            async function saveGenre(albumId) {
+                const area = $("#genre-area");
+                const genre = $("#genre-input").value.trim();
+                if (!genre) return;
+                const btn = $("#genre-save-btn");
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span>Saving…';
+                try {
+                    const r = await fetch(`/api/album/${albumId}/genre/save`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ genre }),
+                    });
+                    const d = await r.json();
+                    if (d.error) {
+                        area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+                        return;
+                    }
+                    area.innerHTML = `<div style="color:#4ecca3;padding:0.8rem">✓ Genre set to: ${esc(d.genre)}</div>`;
+                    setTimeout(() => loadAlbum(albumId), 1500);
+                } catch (e) {
+                    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-    if (d.error) {
-      area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
-      return;
-    }
+            /* ---- Cover Art ---- */
+            async function fetchCover(albumId) {
+                const btn = $("#cover-fetch-btn");
+                const area = $("#cover-area");
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span>Searching…';
 
-    if (!d.found) {
-      area.innerHTML = '<div class="identify-form" style="padding:0.8rem">No cover art found</div>';
-      return;
-    }
+                try {
+                    const r = await fetch(`/api/album/${albumId}/cover/fetch`, {
+                        method: "POST",
+                    });
+                    const d = await r.json();
+                    btn.textContent = "Fetch Cover";
+                    btn.disabled = false;
 
-    area.innerHTML = `
+                    if (d.error) {
+                        area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+                        return;
+                    }
+
+                    if (!d.found) {
+                        area.innerHTML =
+                            '<div class="identify-form" style="padding:0.8rem">No cover art found</div>';
+                        return;
+                    }
+
+                    area.innerHTML = `
       <div class="identify-form" style="text-align:center">
         <p style="margin-bottom:0.5rem;color:#888">Found from: ${esc(d.source)}</p>
         <img src="${esc(d.preview_url)}?t=${Date.now()}" style="max-width:300px;max-height:300px;border-radius:8px;cursor:pointer" onclick="openLightbox('${esc(d.preview_url)}?t=${Date.now()}')" alt="Preview">
@@ -783,98 +1035,122 @@ async function fetchCover(albumId) {
         </div>
       </div>
     `;
-  } catch (e) {
-    btn.textContent = "Fetch Cover";
-    btn.disabled = false;
-    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+                } catch (e) {
+                    btn.textContent = "Fetch Cover";
+                    btn.disabled = false;
+                    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-async function confirmCover(albumId) {
-  const area = $("#cover-area");
-  const btn = area.querySelector(".btn-accent");
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…'; }
+            async function confirmCover(albumId) {
+                const area = $("#cover-area");
+                const btn = area.querySelector(".btn-accent");
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner"></span>Saving…';
+                }
 
-  try {
-    const r = await fetch(`/api/album/${albumId}/cover/confirm`, { method: "POST" });
-    const d = await r.json();
-    if (d.error) {
-      area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
-      return;
-    }
-    area.innerHTML = '<div style="color:#4ecca3;padding:0.8rem;text-align:center">✓ Cover art saved and embedded</div>';
-    setTimeout(() => loadAlbum(albumId), 1500);
-  } catch (e) {
-    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/cover/confirm`,
+                        { method: "POST" },
+                    );
+                    const d = await r.json();
+                    if (d.error) {
+                        area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+                        return;
+                    }
+                    area.innerHTML =
+                        '<div style="color:#4ecca3;padding:0.8rem;text-align:center">✓ Cover art saved and embedded</div>';
+                    setTimeout(() => loadAlbum(albumId), 1500);
+                } catch (e) {
+                    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-async function uploadCover(albumId, file) {
-  if (!file) return;
-  const area = $("#cover-area");
-  area.innerHTML = '<div class="loading"><span class="spinner"></span> Uploading…</div>';
+            async function uploadCover(albumId, file) {
+                if (!file) return;
+                const area = $("#cover-area");
+                area.innerHTML =
+                    '<div class="loading"><span class="spinner"></span> Uploading…</div>';
 
-  try {
-    const fd = new FormData();
-    fd.append("file", file);
-    const r = await fetch(`/api/album/${albumId}/cover/upload`, { method: "POST", body: fd });
-    const d = await r.json();
-    if (d.error) {
-      area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
-      return;
-    }
-    area.innerHTML = '<div style="color:#4ecca3;padding:0.8rem;text-align:center">✓ Cover art uploaded and embedded</div>';
-    setTimeout(() => loadAlbum(albumId), 1500);
-  } catch (e) {
-    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+                try {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    const r = await fetch(
+                        `/api/album/${albumId}/cover/upload`,
+                        { method: "POST", body: fd },
+                    );
+                    const d = await r.json();
+                    if (d.error) {
+                        area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+                        return;
+                    }
+                    area.innerHTML =
+                        '<div style="color:#4ecca3;padding:0.8rem;text-align:center">✓ Cover art uploaded and embedded</div>';
+                    setTimeout(() => loadAlbum(albumId), 1500);
+                } catch (e) {
+                    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-/* ---- Lightbox ---- */
-function openLightbox(src) {
-  const lb = document.createElement("div");
-  lb.className = "lightbox";
-  lb.onclick = () => lb.remove();
-  lb.innerHTML = `<img src="${esc(src)}" alt="Cover">`;
-  document.body.appendChild(lb);
-  document.addEventListener("keydown", function handler(e) {
-    if (e.key === "Escape") { lb.remove(); document.removeEventListener("keydown", handler); }
-  });
-}
+            /* ---- Lightbox ---- */
+            function openLightbox(src) {
+                const lb = document.createElement("div");
+                lb.className = "lightbox";
+                lb.onclick = () => lb.remove();
+                lb.innerHTML = `<img src="${esc(src)}" alt="Cover">`;
+                document.body.appendChild(lb);
+                document.addEventListener("keydown", function handler(e) {
+                    if (e.key === "Escape") {
+                        lb.remove();
+                        document.removeEventListener("keydown", handler);
+                    }
+                });
+            }
 
-/* ---- Lyrics helpers ---- */
-const _lyricsStore = {};
-let _lyricsStoreId = 0;
+            /* ---- Lyrics helpers ---- */
+            const _lyricsStore = {};
+            let _lyricsStoreId = 0;
 
-function _storeLyrics(text) {
-  const key = '_lyr_' + (++_lyricsStoreId);
-  _lyricsStore[key] = text;
-  return key;
-}
+            function _storeLyrics(text) {
+                const key = "_lyr_" + ++_lyricsStoreId;
+                _lyricsStore[key] = text;
+                return key;
+            }
 
-function formatLyricsHtml(text) {
-  if (!text) return '<span style="color:#555">No lyrics</span>';
-  const lines = text.split('\n');
-  return lines.map(line => {
-    const m = line.match(/^(\[\d{2}:\d{2}\.\d{2,3}\])\s*(.*)$/);
-    if (m) {
-      return `<span class="lrc-timestamp">${esc(m[1])}</span>${esc(m[2])}`;
-    }
-    return esc(line);
-  }).join('\n');
-}
+            function formatLyricsHtml(text) {
+                if (!text) return '<span style="color:#555">No lyrics</span>';
+                const lines = text.split("\n");
+                return lines
+                    .map((line) => {
+                        const m = line.match(
+                            /^(\[\d{2}:\d{2}\.\d{2,3}\])\s*(.*)$/,
+                        );
+                        if (m) {
+                            return `<span class="lrc-timestamp">${esc(m[1])}</span>${esc(m[2])}`;
+                        }
+                        return esc(line);
+                    })
+                    .join("\n");
+            }
 
-function lyricsPreviewText(text, maxLines) {
-  if (!text) return '';
-  return text.split('\n').slice(0, maxLines || 6).join('\n');
-}
+            function lyricsPreviewText(text, maxLines) {
+                if (!text) return "";
+                return text
+                    .split("\n")
+                    .slice(0, maxLines || 6)
+                    .join("\n");
+            }
 
-function openLyricsPopup(title, bodyHtml) {
-  document.querySelector('.lyrics-popup')?.remove();
-  const popup = document.createElement('div');
-  popup.className = 'lyrics-popup';
-  popup.onclick = e => { if (e.target === popup) popup.remove(); };
-  popup.innerHTML = `
+            function openLyricsPopup(title, bodyHtml) {
+                document.querySelector(".lyrics-popup")?.remove();
+                const popup = document.createElement("div");
+                popup.className = "lyrics-popup";
+                popup.onclick = (e) => {
+                    if (e.target === popup) popup.remove();
+                };
+                popup.innerHTML = `
     <div class="lyrics-popup-content">
       <div class="lyrics-popup-header">
         <h3>${title}</h3>
@@ -883,308 +1159,447 @@ function openLyricsPopup(title, bodyHtml) {
       <div class="lyrics-popup-body">${bodyHtml}</div>
     </div>
   `;
-  document.body.appendChild(popup);
-  const handler = e => { if (e.key === 'Escape') { popup.remove(); document.removeEventListener('keydown', handler); } };
-  document.addEventListener('keydown', handler);
-}
+                document.body.appendChild(popup);
+                const handler = (e) => {
+                    if (e.key === "Escape") {
+                        popup.remove();
+                        document.removeEventListener("keydown", handler);
+                    }
+                };
+                document.addEventListener("keydown", handler);
+            }
 
-function showFullLyrics(storeKey, title) {
-  const text = _lyricsStore[storeKey] || '';
-  openLyricsPopup(esc(title), `<div class="lyrics-text">${formatLyricsHtml(text)}</div>`);
-}
+            function showFullLyrics(storeKey, title) {
+                const text = _lyricsStore[storeKey] || "";
+                openLyricsPopup(
+                    esc(title),
+                    `<div class="lyrics-text">${formatLyricsHtml(text)}</div>`,
+                );
+            }
 
-/* ---- Track lyrics inline panel ---- */
-async function toggleTrackLyrics(albumId, trackId) {
-  const row = $(`#lyrics-${trackId}`);
-  if (row.style.display !== 'none') {
-    row.style.display = 'none';
-    return;
-  }
-  row.style.display = '';
-  const panel = $(`#lyrics-panel-${trackId}`);
-  panel.innerHTML = '<span class="spinner"></span> Loading…';
-  try {
-    const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics`);
-    const d = await r.json();
-    if (d.error) { panel.innerHTML = `<span class="error">${esc(d.error)}</span>`; return; }
-    _renderLyricsPanel(panel, albumId, trackId, d);
-  } catch (e) {
-    panel.innerHTML = `<span class="error">${esc(e.message)}</span>`;
-  }
-}
+            /* ---- Track lyrics inline panel ---- */
+            async function toggleTrackLyrics(albumId, trackId) {
+                const row = $(`#lyrics-${trackId}`);
+                if (row.style.display !== "none") {
+                    row.style.display = "none";
+                    return;
+                }
+                row.style.display = "";
+                const panel = $(`#lyrics-panel-${trackId}`);
+                panel.innerHTML = '<span class="spinner"></span> Loading…';
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/track/${trackId}/lyrics`,
+                    );
+                    const d = await r.json();
+                    if (d.error) {
+                        panel.innerHTML = `<span class="error">${esc(d.error)}</span>`;
+                        return;
+                    }
+                    _renderLyricsPanel(panel, albumId, trackId, d);
+                } catch (e) {
+                    panel.innerHTML = `<span class="error">${esc(e.message)}</span>`;
+                }
+            }
 
-function _renderLyricsPanel(panel, albumId, trackId, d) {
-  let html = '<div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.6rem;flex-wrap:wrap">';
-  if (d.has_lyrics) {
-    if (d.source === 'lrc_file') {
-      html += `<span class="lrc-badge">External .lrc file</span>`;
-      html += `<button class="btn btn-sm btn-lyrics" onclick="embedLrcLyrics(${albumId}, ${trackId})">Embed into file</button>`;
-    } else {
-      html += `<span class="lyrics-source-badge">Embedded</span>`;
-    }
-  }
-  html += `<button class="btn btn-sm" onclick="openLyricsEditor(${albumId}, ${trackId})">Edit</button>`;
-  html += `<button class="btn btn-sm" onclick="fetchTrackLyrics(${albumId}, ${trackId}, this)">Search online</button>`;
-  html += '</div>';
+            function _renderLyricsPanel(panel, albumId, trackId, d) {
+                let html =
+                    '<div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.6rem;flex-wrap:wrap">';
+                if (d.has_lyrics) {
+                    if (d.source === "lrc_file") {
+                        html += `<span class="lrc-badge">External .lrc file</span>`;
+                        html += `<button class="btn btn-sm btn-lyrics" onclick="embedLrcLyrics(${albumId}, ${trackId})">Embed into file</button>`;
+                    } else {
+                        html += `<span class="lyrics-source-badge">Embedded</span>`;
+                    }
+                }
+                html += `<button class="btn btn-sm" onclick="openLyricsEditor(${albumId}, ${trackId})">Edit</button>`;
+                html += `<button class="btn btn-sm" onclick="fetchTrackLyrics(${albumId}, ${trackId}, this)">Search online</button>`;
+                html += "</div>";
 
-  if (d.has_lyrics) {
-    const storeKey = _storeLyrics(d.lyrics);
-    html += `<div class="lyrics-preview-inline" onclick="showFullLyrics('${storeKey}', 'Lyrics')">${formatLyricsHtml(lyricsPreviewText(d.lyrics, 8))}</div>`;
-  } else {
-    html += '<span style="color:#555;font-size:0.8rem">No lyrics</span>';
-  }
+                if (d.has_lyrics) {
+                    const storeKey = _storeLyrics(d.lyrics);
+                    html += `<div class="lyrics-preview-inline" onclick="showFullLyrics('${storeKey}', 'Lyrics')">${formatLyricsHtml(lyricsPreviewText(d.lyrics, 8))}</div>`;
+                } else {
+                    html +=
+                        '<span style="color:#555;font-size:0.8rem">No lyrics</span>';
+                }
 
-  panel.innerHTML = html;
-}
+                panel.innerHTML = html;
+            }
 
-/* ---- Lyrics editor (inline) ---- */
-function openLyricsEditor(albumId, trackId) {
-  const row = $(`#lyrics-${trackId}`);
-  row.style.display = '';
-  const panel = $(`#lyrics-panel-${trackId}`);
+            /* ---- Lyrics editor (inline) ---- */
+            function openLyricsEditor(albumId, trackId) {
+                const row = $(`#lyrics-${trackId}`);
+                row.style.display = "";
+                const panel = $(`#lyrics-panel-${trackId}`);
 
-  // Load current text first
-  fetch(`/api/album/${albumId}/track/${trackId}/lyrics`)
-    .then(r => r.json())
-    .then(d => {
-      const existing = (d.has_lyrics ? d.lyrics : '') || '';
-      panel.innerHTML = `
+                // Load current text first
+                fetch(`/api/album/${albumId}/track/${trackId}/lyrics`)
+                    .then((r) => r.json())
+                    .then((d) => {
+                        const existing = (d.has_lyrics ? d.lyrics : "") || "";
+                        panel.innerHTML = `
         <textarea id="lyrics-editor-${trackId}" style="width:100%;min-height:200px;background:#111;color:#e0e0e0;border:1px solid #0f3460;border-radius:6px;padding:0.6rem;font-size:0.8rem;line-height:1.6;font-family:inherit;resize:vertical">${esc(existing)}</textarea>
         <div style="margin-top:0.5rem;display:flex;gap:0.5rem">
           <button class="btn btn-sm btn-accent" onclick="saveLyricsEdit(${albumId}, ${trackId})">Save</button>
           <button class="btn btn-sm" onclick="toggleTrackLyrics(${albumId}, ${trackId})">Cancel</button>
         </div>
       `;
-    });
-}
+                    });
+            }
 
-async function saveLyricsEdit(albumId, trackId) {
-  const textarea = $(`#lyrics-editor-${trackId}`);
-  if (!textarea) return;
-  const text = textarea.value;
-  const panel = $(`#lyrics-panel-${trackId}`);
-  const btn = panel.querySelector('.btn-accent');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…'; }
+            async function saveLyricsEdit(albumId, trackId) {
+                const textarea = $(`#lyrics-editor-${trackId}`);
+                if (!textarea) return;
+                const text = textarea.value;
+                const panel = $(`#lyrics-panel-${trackId}`);
+                const btn = panel.querySelector(".btn-accent");
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner"></span>Saving…';
+                }
 
-  try {
-    const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics/save`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({lyrics: text}),
-    });
-    const d = await r.json();
-    if (d.error) { alert(d.error); if (btn) { btn.disabled = false; btn.textContent = 'Save'; } return; }
-    // Reload the panel
-    const r2 = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics`);
-    const d2 = await r2.json();
-    _renderLyricsPanel(panel, albumId, trackId, d2);
-  } catch (e) {
-    alert(e.message);
-    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
-  }
-}
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/track/${trackId}/lyrics/save`,
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ lyrics: text }),
+                        },
+                    );
+                    const d = await r.json();
+                    if (d.error) {
+                        alert(d.error);
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = "Save";
+                        }
+                        return;
+                    }
+                    // Reload the panel
+                    const r2 = await fetch(
+                        `/api/album/${albumId}/track/${trackId}/lyrics`,
+                    );
+                    const d2 = await r2.json();
+                    _renderLyricsPanel(panel, albumId, trackId, d2);
+                } catch (e) {
+                    alert(e.message);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = "Save";
+                    }
+                }
+            }
 
-/* ---- Embed .lrc into file (inline) ---- */
-async function embedLrcLyrics(albumId, trackId) {
-  const panel = $(`#lyrics-panel-${trackId}`);
-  try {
-    const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics/embed`, { method: 'POST' });
-    const d = await r.json();
-    if (d.error) { alert(d.error); return; }
-    // Reload panel
-    const r2 = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics`);
-    const d2 = await r2.json();
-    _renderLyricsPanel(panel, albumId, trackId, d2);
-  } catch (e) {
-    alert(e.message);
-  }
-}
+            /* ---- Embed all .lrc files in album ---- */
+            async function embedAllLrc(albumId) {
+                const btn = $("#embed-all-btn");
+                btn.disabled = true;
+                btn.textContent = "Embedding…";
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/lyrics/embed`,
+                        { method: "POST" },
+                    );
+                    const d = await r.json();
+                    if (d.error) {
+                        alert(d.error);
+                        return;
+                    }
+                    const area = $("#lyrics-area");
+                    if (d.embedded.length) {
+                        area.innerHTML =
+                            '<div class="info" style="margin:0.5rem 0">' +
+                            d.embedded
+                                .map((t) => `✓ Embedded: ${esc(t.title)}`)
+                                .join("<br>") +
+                            "</div>";
+                    } else {
+                        area.innerHTML =
+                            '<div class="info" style="margin:0.5rem 0">No .lrc files to embed</div>';
+                    }
+                    btn.remove();
+                } catch (e) {
+                    alert(e.message);
+                } finally {
+                    if (btn.parentNode) {
+                        btn.disabled = false;
+                        btn.textContent = "Embed All";
+                    }
+                }
+            }
 
-/* ---- Fetch lyrics for single track (inline) ---- */
-async function fetchTrackLyrics(albumId, trackId, btn) {
-  const panel = $(`#lyrics-panel-${trackId}`);
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Searching…';
-  try {
-    const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics/fetch`, { method: 'POST' });
-    const d = await r.json();
-    if (d.error) { alert(d.error); btn.disabled = false; btn.textContent = 'Search online'; return; }
-    if (!d.found) {
-      btn.textContent = 'Search online';
-      btn.disabled = false;
-      panel.innerHTML += '<div style="color:#e94560;font-size:0.8rem;margin-top:0.5rem">No lyrics found online</div>';
-      return;
-    }
+            /* ---- Embed .lrc into file (inline) ---- */
+            async function embedLrcLyrics(albumId, trackId) {
+                const panel = $(`#lyrics-panel-${trackId}`);
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/track/${trackId}/lyrics/embed`,
+                        { method: "POST" },
+                    );
+                    const d = await r.json();
+                    if (d.error) {
+                        alert(d.error);
+                        return;
+                    }
+                    // Reload panel
+                    const r2 = await fetch(
+                        `/api/album/${albumId}/track/${trackId}/lyrics`,
+                    );
+                    const d2 = await r2.json();
+                    _renderLyricsPanel(panel, albumId, trackId, d2);
+                } catch (e) {
+                    alert(e.message);
+                }
+            }
 
-    // Show diff inline
-    const curKey = _storeLyrics(d.current_lyrics || '');
-    const newKey = _storeLyrics(d.new_lyrics);
+            /* ---- Fetch lyrics for single track (inline) ---- */
+            async function fetchTrackLyrics(albumId, trackId, btn) {
+                const panel = $(`#lyrics-panel-${trackId}`);
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span>Searching…';
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/track/${trackId}/lyrics/fetch`,
+                        { method: "POST" },
+                    );
+                    const d = await r.json();
+                    if (d.error) {
+                        alert(d.error);
+                        btn.disabled = false;
+                        btn.textContent = "Search online";
+                        return;
+                    }
+                    if (!d.found) {
+                        btn.textContent = "Search online";
+                        btn.disabled = false;
+                        panel.innerHTML +=
+                            '<div style="color:#e94560;font-size:0.8rem;margin-top:0.5rem">No lyrics found online</div>';
+                        return;
+                    }
 
-    let currentCol = '';
-    if (d.current_lyrics) {
-      const srcBadge = d.current_source === 'lrc_file'
-        ? '<span class="lrc-badge">External .lrc</span> '
-        : '<span class="lyrics-source-badge">Embedded</span> ';
-      currentCol = `<div class="lyrics-diff-col">
+                    // Show diff inline
+                    const curKey = _storeLyrics(d.current_lyrics || "");
+                    const newKey = _storeLyrics(d.new_lyrics);
+
+                    let currentCol = "";
+                    if (d.current_lyrics) {
+                        const srcBadge =
+                            d.current_source === "lrc_file"
+                                ? '<span class="lrc-badge">External .lrc</span> '
+                                : '<span class="lyrics-source-badge">Embedded</span> ';
+                        currentCol = `<div class="lyrics-diff-col">
         <h4>Current ${srcBadge}</h4>
         <div class="lyrics-preview-inline" onclick="showFullLyrics('${curKey}', 'Current')">${formatLyricsHtml(lyricsPreviewText(d.current_lyrics, 6))}</div>
       </div>`;
-    } else {
-      currentCol = `<div class="lyrics-diff-col"><h4>Current</h4><span style="color:#555">No lyrics</span></div>`;
-    }
+                    } else {
+                        currentCol = `<div class="lyrics-diff-col"><h4>Current</h4><span style="color:#555">No lyrics</span></div>`;
+                    }
 
-    const newBadge = d.new_synced ? ' <span class="lyrics-source-badge">synced</span>' : '';
-    const newCol = `<div class="lyrics-diff-col">
+                    const newBadge = d.new_synced
+                        ? ' <span class="lyrics-source-badge">synced</span>'
+                        : "";
+                    const newCol = `<div class="lyrics-diff-col">
       <h4>New (${esc(d.new_backend)})${newBadge}</h4>
       <div class="lyrics-preview-inline" onclick="showFullLyrics('${newKey}', 'New')">${formatLyricsHtml(lyricsPreviewText(d.new_lyrics, 6))}</div>
     </div>`;
 
-    panel.innerHTML = `
+                    panel.innerHTML = `
       <div class="lyrics-diff">${currentCol}${newCol}</div>
       <div style="margin-top:0.6rem;display:flex;gap:0.5rem">
         <button class="btn btn-sm btn-accent" onclick="confirmTrackLyrics(${albumId}, ${trackId})">Confirm & Write</button>
         <button class="btn btn-sm" onclick="reloadLyricsPanel(${albumId}, ${trackId})">Cancel</button>
       </div>
     `;
-  } catch (e) {
-    btn.textContent = 'Search online';
-    btn.disabled = false;
-    alert(e.message);
-  }
-}
+                } catch (e) {
+                    btn.textContent = "Search online";
+                    btn.disabled = false;
+                    alert(e.message);
+                }
+            }
 
-async function confirmTrackLyrics(albumId, trackId) {
-  const panel = $(`#lyrics-panel-${trackId}`);
-  const btn = panel.querySelector('.btn-accent');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Writing…'; }
-  try {
-    const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics/confirm`, { method: 'POST' });
-    const d = await r.json();
-    if (d.error) { alert(d.error); if (btn) { btn.disabled = false; btn.textContent = 'Confirm & Write'; } return; }
-    // Reload panel
-    const r2 = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics`);
-    const d2 = await r2.json();
-    _renderLyricsPanel(panel, albumId, trackId, d2);
-  } catch (e) {
-    alert(e.message);
-    if (btn) { btn.disabled = false; btn.textContent = 'Confirm & Write'; }
-  }
-}
+            async function confirmTrackLyrics(albumId, trackId) {
+                const panel = $(`#lyrics-panel-${trackId}`);
+                const btn = panel.querySelector(".btn-accent");
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner"></span>Writing…';
+                }
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/track/${trackId}/lyrics/confirm`,
+                        { method: "POST" },
+                    );
+                    const d = await r.json();
+                    if (d.error) {
+                        alert(d.error);
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = "Confirm & Write";
+                        }
+                        return;
+                    }
+                    // Reload panel
+                    const r2 = await fetch(
+                        `/api/album/${albumId}/track/${trackId}/lyrics`,
+                    );
+                    const d2 = await r2.json();
+                    _renderLyricsPanel(panel, albumId, trackId, d2);
+                } catch (e) {
+                    alert(e.message);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = "Confirm & Write";
+                    }
+                }
+            }
 
-async function reloadLyricsPanel(albumId, trackId) {
-  const panel = $(`#lyrics-panel-${trackId}`);
-  const r = await fetch(`/api/album/${albumId}/track/${trackId}/lyrics`);
-  const d = await r.json();
-  _renderLyricsPanel(panel, albumId, trackId, d);
-}
+            async function reloadLyricsPanel(albumId, trackId) {
+                const panel = $(`#lyrics-panel-${trackId}`);
+                const r = await fetch(
+                    `/api/album/${albumId}/track/${trackId}/lyrics`,
+                );
+                const d = await r.json();
+                _renderLyricsPanel(panel, albumId, trackId, d);
+            }
 
-/* ---- Fetch lyrics for whole album ---- */
-async function fetchAlbumLyrics(albumId) {
-  const btn = document.getElementById('lyrics-btn');
-  const area = document.getElementById('lyrics-area');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Fetching lyrics…';
+            /* ---- Fetch lyrics for whole album ---- */
+            async function fetchAlbumLyrics(albumId) {
+                const btn = document.getElementById("lyrics-btn");
+                const area = document.getElementById("lyrics-area");
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span>Fetching lyrics…';
 
-  try {
-    const r = await fetch(`/api/album/${albumId}/lyrics/fetch`, { method: 'POST' });
-    const d = await r.json();
-    btn.textContent = 'Fetch All';
-    btn.disabled = false;
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/lyrics/fetch`,
+                        { method: "POST" },
+                    );
+                    const d = await r.json();
+                    btn.textContent = "Fetch All";
+                    btn.disabled = false;
 
-    if (d.error) { area.innerHTML = `<div class="error">${esc(d.error)}</div>`; return; }
+                    if (d.error) {
+                        area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+                        return;
+                    }
 
-    const found = d.tracks.filter(t => t.found);
-    if (!found.length) {
-      area.innerHTML = '<div class="identify-form" style="padding:0.8rem">No lyrics found for any track</div>';
-      return;
-    }
+                    const found = d.tracks.filter((t) => t.found);
+                    if (!found.length) {
+                        area.innerHTML =
+                            '<div class="identify-form" style="padding:0.8rem">No lyrics found for any track</div>';
+                        return;
+                    }
 
-    let html = '<div class="identify-form"><h3 style="margin-bottom:0.8rem;font-size:0.95rem">Lyrics Results</h3>';
+                    let html =
+                        '<div class="identify-form"><h3 style="margin-bottom:0.8rem;font-size:0.95rem">Lyrics Results</h3>';
 
-    for (const t of d.tracks) {
-      const trackNum = (t.disc > 1 ? t.disc + '-' : '') + t.track;
-      html += `<div class="lyrics-result-item">`;
-      html += `<div class="lyrics-result-header">
+                    for (const t of d.tracks) {
+                        const trackNum =
+                            (t.disc > 1 ? t.disc + "-" : "") + t.track;
+                        html += `<div class="lyrics-result-item">`;
+                        html += `<div class="lyrics-result-header">
         <span class="lyrics-result-title">${esc(trackNum)}. ${esc(t.title)}</span>`;
 
-      if (t.found) {
-        const syncBadge = t.new_synced ? ' <span class="lyrics-source-badge">synced</span>' : '';
-        html += `<span class="lyrics-result-meta">${esc(t.new_backend)}${syncBadge}</span>`;
-      } else {
-        html += `<span class="lyrics-result-meta" style="color:#e94560">not found</span>`;
-      }
-      html += `</div>`;
+                        if (t.found) {
+                            const syncBadge = t.new_synced
+                                ? ' <span class="lyrics-source-badge">synced</span>'
+                                : "";
+                            html += `<span class="lyrics-result-meta">${esc(t.new_backend)}${syncBadge}</span>`;
+                        } else {
+                            html += `<span class="lyrics-result-meta" style="color:#e94560">not found</span>`;
+                        }
+                        html += `</div>`;
 
-      if (t.found) {
-        const curKey = _storeLyrics(t.current_lyrics || '');
-        const newKey = _storeLyrics(t.new_lyrics);
-        const safeTitle = esc(t.title).replace(/'/g, "\\'");
+                        if (t.found) {
+                            const curKey = _storeLyrics(t.current_lyrics || "");
+                            const newKey = _storeLyrics(t.new_lyrics);
+                            const safeTitle = esc(t.title).replace(/'/g, "\\'");
 
-        let currentCol = '';
-        if (t.current_lyrics) {
-          const srcBadge = t.current_source === 'lrc_file'
-            ? '<span class="lrc-badge">External .lrc</span>'
-            : '<span class="lyrics-source-badge">Embedded</span>';
-          currentCol = `<div class="lyrics-diff-col">
+                            let currentCol = "";
+                            if (t.current_lyrics) {
+                                const srcBadge =
+                                    t.current_source === "lrc_file"
+                                        ? '<span class="lrc-badge">External .lrc</span>'
+                                        : '<span class="lyrics-source-badge">Embedded</span>';
+                                currentCol = `<div class="lyrics-diff-col">
             <h4>Current ${srcBadge}</h4>
             <div class="lyrics-preview-inline" onclick="showFullLyrics('${curKey}', 'Current — ${safeTitle}')">${formatLyricsHtml(lyricsPreviewText(t.current_lyrics, 4))}</div>
           </div>`;
-        } else {
-          currentCol = `<div class="lyrics-diff-col"><h4>Current</h4><span style="color:#555">none</span></div>`;
-        }
+                            } else {
+                                currentCol = `<div class="lyrics-diff-col"><h4>Current</h4><span style="color:#555">none</span></div>`;
+                            }
 
-        const newCol = `<div class="lyrics-diff-col">
+                            const newCol = `<div class="lyrics-diff-col">
           <h4>New</h4>
           <div class="lyrics-preview-inline" onclick="showFullLyrics('${newKey}', 'New — ${safeTitle}')">${formatLyricsHtml(lyricsPreviewText(t.new_lyrics, 4))}</div>
         </div>`;
 
-        html += `<div class="lyrics-diff">${currentCol}${newCol}</div>`;
-        html += `<label style="display:flex;align-items:center;gap:0.4rem;margin-top:0.5rem;font-size:0.8rem;cursor:pointer">
+                            html += `<div class="lyrics-diff">${currentCol}${newCol}</div>`;
+                            html += `<label style="display:flex;align-items:center;gap:0.4rem;margin-top:0.5rem;font-size:0.8rem;cursor:pointer">
           <input type="checkbox" class="lyrics-track-cb" value="${t.item_id}" checked> Write lyrics for this track
         </label>`;
-      }
+                        }
 
-      html += `</div>`;
-    }
+                        html += `</div>`;
+                    }
 
-    html += `<div style="margin-top:1rem;display:flex;gap:0.5rem">
+                    html += `<div style="margin-top:1rem;display:flex;gap:0.5rem">
       <button class="btn btn-accent" onclick="confirmAlbumLyrics(${albumId})">Confirm & Write Selected</button>
       <button class="btn" onclick="document.getElementById('lyrics-area').innerHTML=''">Cancel</button>
     </div></div>`;
 
-    area.innerHTML = html;
-  } catch (e) {
-    btn.textContent = 'Fetch All';
-    btn.disabled = false;
-    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+                    area.innerHTML = html;
+                } catch (e) {
+                    btn.textContent = "Fetch All";
+                    btn.disabled = false;
+                    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-async function confirmAlbumLyrics(albumId) {
-  const area = document.getElementById('lyrics-area');
-  const checkboxes = area.querySelectorAll('.lyrics-track-cb:checked');
-  const itemIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
-  if (!itemIds.length) { alert('No tracks selected'); return; }
+            async function confirmAlbumLyrics(albumId) {
+                const area = document.getElementById("lyrics-area");
+                const checkboxes = area.querySelectorAll(
+                    ".lyrics-track-cb:checked",
+                );
+                const itemIds = Array.from(checkboxes).map((cb) =>
+                    parseInt(cb.value),
+                );
+                if (!itemIds.length) {
+                    alert("No tracks selected");
+                    return;
+                }
 
-  const btn = area.querySelector('.btn-accent');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Writing…'; }
+                const btn = area.querySelector(".btn-accent");
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner"></span>Writing…';
+                }
 
-  try {
-    const r = await fetch(`/api/album/${albumId}/lyrics/confirm`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({item_ids: itemIds}),
-    });
-    const d = await r.json();
-    if (d.error) { area.innerHTML = `<div class="error">${esc(d.error)}</div>`; return; }
-    area.innerHTML = `<div style="color:#4ecca3;padding:0.8rem">✓ Lyrics written for ${d.written} track(s)</div>`;
-  } catch (e) {
-    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
-  }
-}
+                try {
+                    const r = await fetch(
+                        `/api/album/${albumId}/lyrics/confirm`,
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ item_ids: itemIds }),
+                        },
+                    );
+                    const d = await r.json();
+                    if (d.error) {
+                        area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+                        return;
+                    }
+                    area.innerHTML = `<div style="color:#4ecca3;padding:0.8rem">✓ Lyrics written for ${d.written} track(s)</div>`;
+                } catch (e) {
+                    area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+                }
+            }
 
-/* ---- Init ---- */
-route();
-</script>
-</body>
+            /* ---- Init ---- */
+            route();
+        </script>
+    </body>
 </html>
