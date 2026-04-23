@@ -299,18 +299,33 @@ def confirm_match(album_id):
         )
 
         album_match.apply_metadata()
+        write_failures = []
         for item in album_match.mapping.keys():
             item.store()
-            item.try_write()
-            log.info("Wrote tags for track %d: %s", item.track, item.title)
+            if not item.try_write():
+                log.warning("Failed to write tags for track %d: %s", item.track, item.title)
+                write_failures.append(item.id)
+            else:
+                log.info("Wrote tags for track %d: %s", item.track, item.title)
 
         album_match.apply_album_metadata(album)
         album.store()
 
-        album.beetdeck_tagged = "1"
-        album.store()
-
-        log.info("Album %d tagged successfully", album_id)
+        if not write_failures:
+            album.beetdeck_tagged = "1"
+            album.store()
+            log.info("Album %d tagged successfully", album_id)
+            task.pop("_matches", None)
+        else:
+            log.warning(
+                "Album %d: tag write failed for %d track(s), not marking as tagged",
+                album_id,
+                len(write_failures),
+            )
+            return (
+                jsonify({"error": f"Failed to write tags for {len(write_failures)} track(s)"}),
+                500,
+            )
 
         return jsonify({"status": "ok"})
 
@@ -318,6 +333,5 @@ def confirm_match(album_id):
         log.exception("Confirm failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
     finally:
-        task.pop("_matches", None)
         if lib is not None:
             lib._close()

@@ -122,7 +122,7 @@ def fetch_track_lyrics(album_id, item_id):
 def confirm_track_lyrics(album_id, item_id):
     """Write fetched lyrics to a single track."""
     with state.identify_lock:
-        task = state.identify_tasks.pop(f"lyrics_{item_id}", None)
+        task = state.identify_tasks.get(f"lyrics_{item_id}")
     if not task or not task.get("_lyrics_obj"):
         return jsonify({"error": "No lyrics to confirm"}), 400
 
@@ -144,15 +144,21 @@ def confirm_track_lyrics(album_id, item_id):
 
         item.lyrics = new_lyrics.full_text
         item.store()
-        item.try_write()
 
         log.info("Lyrics written for item_id=%d", item_id)
 
-        item_path = _resolve_path(item.path)
-        lrc_path = _find_lrc_file(item_path)
-        if lrc_path:
-            os.remove(lrc_path)
-            log.info("Removed .lrc file: %s", lrc_path)
+        if item.try_write():
+            with state.identify_lock:
+                if state.identify_tasks.get(f"lyrics_{item_id}") is task:
+                    state.identify_tasks.pop(f"lyrics_{item_id}", None)
+            item_path = _resolve_path(item.path)
+            lrc_path = _find_lrc_file(item_path)
+            if lrc_path:
+                os.remove(lrc_path)
+                log.info("Removed .lrc file: %s", lrc_path)
+        else:
+            log.warning("Failed to write tags for item_id=%d", item_id)
+            return jsonify({"error": "Failed to write tags to audio file"}), 500
 
         return jsonify({"status": "ok"})
 
@@ -254,13 +260,16 @@ def save_track_lyrics(album_id, item_id):
 
         item.lyrics = lyrics_text
         item.store()
-        item.try_write()
 
-        item_path = _resolve_path(item.path)
-        lrc_path = _find_lrc_file(item_path)
-        if lrc_path and lyrics_text:
-            os.remove(lrc_path)
-            log.info("Removed .lrc file after manual edit: %s", lrc_path)
+        if item.try_write():
+            item_path = _resolve_path(item.path)
+            lrc_path = _find_lrc_file(item_path)
+            if lrc_path and lyrics_text:
+                os.remove(lrc_path)
+                log.info("Removed .lrc file after manual edit: %s", lrc_path)
+        else:
+            log.warning("Failed to write tags for item_id=%d", item_id)
+            return jsonify({"error": "Failed to write tags to audio file"}), 500
 
         log.info("Lyrics manually saved for item_id=%d", item_id)
         return jsonify({"status": "ok"})
@@ -375,6 +384,7 @@ def confirm_album_lyrics(album_id):
         library_db = current_app.config["LIBRARY_DB"]
         lib = _init_beets(library_db)
         written = 0
+        failed = []
 
         for item_id in item_ids:
             with state.identify_lock:
@@ -396,21 +406,23 @@ def confirm_album_lyrics(album_id):
 
             item.lyrics = new_lyrics.full_text
             item.store()
-            item.try_write()
 
-            with state.identify_lock:
-                state.identify_tasks.pop(f"lyrics_{item_id}", None)
+            if item.try_write():
+                with state.identify_lock:
+                    if state.identify_tasks.get(f"lyrics_{item_id}") is task:
+                        state.identify_tasks.pop(f"lyrics_{item_id}", None)
+                item_path = _resolve_path(item.path)
+                lrc_path = _find_lrc_file(item_path)
+                if lrc_path:
+                    os.remove(lrc_path)
+                    log.info("Removed .lrc file: %s", lrc_path)
+                written += 1
+                log.info("Lyrics written for item_id=%d", item_id)
+            else:
+                log.warning("Failed to write tags for item_id=%d", item_id)
+                failed.append(item_id)
 
-            item_path = _resolve_path(item.path)
-            lrc_path = _find_lrc_file(item_path)
-            if lrc_path:
-                os.remove(lrc_path)
-                log.info("Removed .lrc file: %s", lrc_path)
-
-            written += 1
-            log.info("Lyrics written for item_id=%d", item_id)
-
-        return jsonify({"status": "ok", "written": written})
+        return jsonify({"status": "ok", "written": written, "failed": failed})
 
     except Exception as e:
         log.exception("Album lyrics confirm failed for album_id=%d", album_id)

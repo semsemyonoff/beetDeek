@@ -103,14 +103,14 @@ class TestConfirmCover:
         assert resp.status_code == 400
         assert resp.get_json()["error"] == "No cover art to confirm"
 
-    def test_task_popped_from_state_even_on_missing_album(self, client, db_path, tmp_path):
+    def test_task_preserved_in_state_on_missing_album(self, client, db_path, tmp_path):
         img_file = tmp_path / "cand.jpg"
         img_file.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 100)
         state.identify_tasks["cover_9999"] = {"candidate_path": str(img_file)}
         # album 9999 doesn't exist in DB
         resp = client.post("/api/album/9999/cover/confirm")
-        # Task should be popped regardless
-        assert "cover_9999" not in state.identify_tasks
+        # Task should be preserved so the user can retry without refetching
+        assert "cover_9999" in state.identify_tasks
         # Response depends on beets init — 404 album or 500 beets error both acceptable
         assert resp.status_code in (404, 500)
 

@@ -56,14 +56,36 @@ async function confirmCover(albumId) {
         );
         const d = await r.json();
         if (d.error) {
-            area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "Confirm & Save";
+            }
+            let errEl = area.querySelector(".cover-confirm-error");
+            if (!errEl) {
+                errEl = document.createElement("div");
+                errEl.className = "error cover-confirm-error";
+                errEl.style.marginTop = "0.5rem";
+                area.appendChild(errEl);
+            }
+            errEl.textContent = d.error;
             return;
         }
         area.innerHTML =
             '<div style="color:#4ecca3;padding:0.8rem;text-align:center">✓ Cover art saved and embedded</div>';
         setTimeout(() => loadAlbum(albumId), 1500);
     } catch (e) {
-        area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Confirm & Save";
+        }
+        let errEl = area.querySelector(".cover-confirm-error");
+        if (!errEl) {
+            errEl = document.createElement("div");
+            errEl.className = "error cover-confirm-error";
+            errEl.style.marginTop = "0.5rem";
+            area.appendChild(errEl);
+        }
+        errEl.textContent = e.message;
     }
 }
 

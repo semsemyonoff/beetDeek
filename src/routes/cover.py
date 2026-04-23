@@ -126,7 +126,7 @@ def cover_preview(album_id):
 def confirm_cover(album_id):
     """Save fetched cover to album directory and embed into files."""
     with state.identify_lock:
-        task = state.identify_tasks.pop(f"cover_{album_id}", None)
+        task = state.identify_tasks.get(f"cover_{album_id}")
     if not task or not task.get("candidate_path"):
         return jsonify({"error": "No cover art to confirm"}), 400
 
@@ -145,6 +145,10 @@ def confirm_cover(album_id):
         log.info("Saving cover art for album_id=%d from %s", album_id, candidate_path)
 
         _save_cover_to_album(album, candidate_path)
+
+        with state.identify_lock:
+            if state.identify_tasks.get(f"cover_{album_id}") is task:
+                state.identify_tasks.pop(f"cover_{album_id}", None)
 
         log.info("Cover art saved and embedded for album_id=%d", album_id)
         return jsonify({"status": "ok"})

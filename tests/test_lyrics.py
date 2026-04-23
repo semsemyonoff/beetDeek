@@ -267,6 +267,25 @@ class TestConfirmTrackLyrics:
         assert resp.status_code == 200
         assert not lrc_file.exists()
 
+    def test_returns_500_when_write_fails(self, client, mocker):
+        lyrics_obj = _make_lyrics_obj(mocker)
+        state.identify_tasks["lyrics_1"] = {"_lyrics_obj": lyrics_obj}
+
+        mock_item = mocker.MagicMock()
+        mock_item.album_id = 1
+        mock_item.path = b"/music/track.mp3"
+        mock_item.try_write.return_value = False
+
+        mock_lib = mocker.MagicMock()
+        mock_lib.get_item.return_value = mock_item
+        mocker.patch("src.routes.lyrics._init_beets", return_value=mock_lib)
+
+        resp = client.post("/api/album/1/track/1/lyrics/confirm")
+        assert resp.status_code == 500
+        assert "Failed to write tags" in resp.get_json()["error"]
+        # task preserved for retry
+        assert "lyrics_1" in state.identify_tasks
+
 
 # ---------------------------------------------------------------------------
 # POST /api/album/<id>/track/<id>/lyrics/embed
@@ -446,6 +465,19 @@ class TestSaveTrackLyrics:
         assert resp.status_code == 200
         assert lrc_file.exists()
 
+    def test_returns_500_when_try_write_fails(self, client, mocker):
+        mock_item = mocker.MagicMock()
+        mock_item.album_id = 1
+        mock_item.path = b"/music/track.mp3"
+        mock_item.try_write.return_value = False
+        mock_lib = mocker.MagicMock()
+        mock_lib.get_item.return_value = mock_item
+        mocker.patch("src.routes.lyrics._init_beets", return_value=mock_lib)
+
+        resp = client.post("/api/album/1/track/1/lyrics/save", json={"lyrics": "My lyrics"})
+        assert resp.status_code == 500
+        assert "error" in resp.get_json()
+
 
 # ---------------------------------------------------------------------------
 # POST /api/album/<id>/lyrics/fetch
@@ -572,6 +604,7 @@ class TestConfirmAlbumLyrics:
         data = resp.get_json()
         assert data["status"] == "ok"
         assert data["written"] == 2
+        assert data["failed"] == []
         assert mock_item1.lyrics == "Verse 1"
         assert "lyrics_1" not in state.identify_tasks
         assert "lyrics_2" not in state.identify_tasks
@@ -599,3 +632,24 @@ class TestConfirmAlbumLyrics:
         resp = client.post("/api/album/1/lyrics/confirm", json={"item_ids": [1]})
         assert resp.status_code == 200
         assert resp.get_json()["written"] == 0
+
+    def test_does_not_count_write_failures(self, client, mocker):
+        lyrics_obj = _make_lyrics_obj(mocker, text="Verse", full_text="Verse 1")
+        state.identify_tasks["lyrics_1"] = {"_lyrics_obj": lyrics_obj}
+
+        mock_item = mocker.MagicMock()
+        mock_item.album_id = 1
+        mock_item.path = b"/music/t1.mp3"
+        mock_item.try_write.return_value = False
+
+        mock_lib = mocker.MagicMock()
+        mock_lib.get_item.return_value = mock_item
+        mocker.patch("src.routes.lyrics._init_beets", return_value=mock_lib)
+
+        resp = client.post("/api/album/1/lyrics/confirm", json={"item_ids": [1]})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["written"] == 0
+        assert data["failed"] == [1]
+        # task preserved for retry
+        assert "lyrics_1" in state.identify_tasks

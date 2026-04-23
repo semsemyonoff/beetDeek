@@ -481,7 +481,51 @@ async function confirmAlbumLyrics(albumId) {
             area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
             return;
         }
-        area.innerHTML = `<div style="color:#4ecca3;padding:0.8rem">✓ Lyrics written for ${d.written} track(s)</div>`;
+        if (d.failed && d.failed.length > 0) {
+            const failedIds = JSON.stringify(d.failed);
+            area.innerHTML = `<div class="identify-form" style="padding:0.8rem">
+                <div class="error" style="margin-bottom:0.8rem">Lyrics written for ${d.written} track(s), but failed to write audio tags for ${d.failed.length} track(s). Check file permissions and try again.</div>
+                <button class="btn btn-accent" onclick="retryFailedLyrics(${albumId}, ${failedIds})">Retry Failed Tracks</button>
+            </div>`;
+        } else {
+            area.innerHTML = `<div style="color:#4ecca3;padding:0.8rem">✓ Lyrics written for ${d.written} track(s)</div>`;
+        }
+    } catch (e) {
+        area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+    }
+}
+
+async function retryFailedLyrics(albumId, failedIds) {
+    const area = document.getElementById("lyrics-area");
+    const btn = area.querySelector(".btn-accent");
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>Retrying…';
+    }
+
+    try {
+        const r = await fetch(
+            `/api/album/${albumId}/lyrics/confirm`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ item_ids: failedIds }),
+            },
+        );
+        const d = await r.json();
+        if (d.error) {
+            area.innerHTML = `<div class="error">${esc(d.error)}</div>`;
+            return;
+        }
+        if (d.failed && d.failed.length > 0) {
+            const newFailedIds = JSON.stringify(d.failed);
+            area.innerHTML = `<div class="identify-form" style="padding:0.8rem">
+                <div class="error" style="margin-bottom:0.8rem">Lyrics written for ${d.written} track(s), but failed to write audio tags for ${d.failed.length} track(s). Check file permissions and try again.</div>
+                <button class="btn btn-accent" onclick="retryFailedLyrics(${albumId}, ${newFailedIds})">Retry Failed Tracks</button>
+            </div>`;
+        } else {
+            area.innerHTML = `<div style="color:#4ecca3;padding:0.8rem">✓ Lyrics written for ${d.written} track(s)</div>`;
+        }
     } catch (e) {
         area.innerHTML = `<div class="error">${esc(e.message)}</div>`;
     }

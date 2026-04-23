@@ -278,3 +278,34 @@ class TestConfirmMatch:
         task = state.identify_tasks["album_1"]
         assert "_matches" not in task
         assert "_lib" not in task
+
+    def test_returns_500_when_write_fails(self, client, mocker):
+        mock_item = mocker.MagicMock()
+        mock_item.track = 1
+        mock_item.title = "Track 1"
+        mock_item.id = 1
+        mock_item.try_write.return_value = False
+
+        mock_album = mocker.MagicMock()
+
+        mock_match = mocker.MagicMock()
+        mock_match.info.artist = "Artist"
+        mock_match.info.album = "Album"
+        mock_match.info.data_source = "MusicBrainz"
+        mock_match.distance = 0.05
+        mock_match.mapping = {mock_item: mocker.MagicMock()}
+
+        mock_lib = mocker.MagicMock()
+        mock_lib.get_album.return_value = mock_album
+
+        state.identify_tasks["album_1"] = {
+            "status": "done",
+            "_matches": [mock_match],
+            "_lib": mock_lib,
+        }
+
+        resp = client.post("/api/album/1/confirm", json={"candidate_index": 0})
+        assert resp.status_code == 500
+        assert "Failed to write tags" in resp.get_json()["error"]
+        # _matches preserved so user can retry
+        assert "_matches" in state.identify_tasks["album_1"]
