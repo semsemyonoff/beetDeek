@@ -45,32 +45,32 @@
 - [x] run tests — must pass before next task
 
 ### Task 3: Unknown artist management UI (new feature)
-- [ ] **Design subtask — album creation from loose items**: Before implementing, resolve these design questions:
+- [x] **Design subtask — album creation from loose items**: Before implementing, resolve these design questions:
   - **Beets API for album creation**: Use `lib.add_album(items)` which creates an album record and sets each item's `album_id`. Verify this works for items that already have an `album_id` (orphaned items in a placeholder album) vs items with `album_id = None`
   - **Transaction behavior**: `lib.add_album()` + `apply_metadata()` + `item.write()` cannot be truly atomic — filesystem tag writes are not transactional. Strategy: (1) create album + apply DB metadata first, (2) then write tags to files in a loop. If a file write fails mid-batch, DB rollback (`album.remove()`, restore original `album_id`) is best-effort — files already written will retain new tags. Document this explicitly: partial file writes are possible on failure, user can re-run or manually fix. Do NOT attempt to capture/restore original file tags (too complex, fragile)
   - **Item reassignment**: Items may currently belong to another album (e.g., a catch-all "Unknown" album). Before creating a new album, save each item's original `album_id` for rollback. After successful confirm, the old album may become empty — do NOT auto-delete it (user may have other items there)
   - **Autotag input**: `autotag.tag_album()` expects a list of `beets.library.Item` objects. Load items via `lib.get_item(id)` for each ID, verify they all exist, then pass to autotag. No temporary album needed for the autotag step — it operates on items directly
   - Document the chosen approach in a code comment in `src/routes/items.py`
-- [ ] design new API endpoints for untagged item management:
+- [x] design new API endpoints for untagged item management:
   - `POST /api/items/<item_id>/metadata` — update artist/album on a single untagged item
   - `POST /api/items/identify` — accept list of item IDs, group them as an album, run identification
-- [ ] create `src/routes/items.py` blueprint with `POST /api/items/<item_id>/metadata`
+- [x] create `src/routes/items.py` blueprint with `POST /api/items/<item_id>/metadata`
   - Accept JSON body `{"artist": "...", "album": "..."}` — update item fields via beets Library
   - Validate that the item exists and fields are non-empty
-- [ ] implement `POST /api/items/identify` in items blueprint
+- [x] implement `POST /api/items/identify` in items blueprint
   - Accept JSON body `{"item_ids": [1, 2, 3], "search_artist": "opt", "search_album": "opt"}` — load items via `lib.get_item()`, pass to `autotag.tag_album()`
   - Return task ID for polling via status endpoint
-- [ ] implement `GET /api/items/identify/<task_id>/status` — returns candidates (same shape as album identify status)
-- [ ] implement `POST /api/items/identify/<task_id>/apply` — preview tag diff for selected candidate against the item group
-- [ ] implement `POST /api/items/identify/<task_id>/confirm` — create album via `lib.add_album(items)`, apply matched metadata to DB, then write tags to files. On DB/creation failure: rollback via `album.remove()`, restore original `album_id` values. On partial file write failure: log which files failed, return success with warnings (DB state is committed, partial file writes are documented as best-effort). Return new `album_id` for frontend navigation
-- [ ] register items blueprint in app factory (`src/__init__.py`)
-- [ ] update frontend: on the "Unknown Artist" page, show individual files with inline edit controls for artist/album fields
-- [ ] update frontend: add multi-select checkboxes to group files and trigger identification via new endpoint
-- [ ] write tests for `POST /api/items/<item_id>/metadata` in `tests/test_items.py` (success, missing item, empty fields)
-- [ ] write tests for `POST /api/items/identify` in `tests/test_items.py` (success, empty list, invalid IDs)
-- [ ] write tests for identify status/apply/confirm endpoints (status polling, apply diff preview, confirm creates album and writes tags)
-- [ ] write test for partial file-write failure in confirm: mock `item.write()` to raise on one item, verify response has `"status": "ok"` with `"warnings"` array listing the failed file path, and verify DB album was still created
-- [ ] run tests — must pass before next task
+- [x] implement `GET /api/items/identify/<task_id>/status` — returns candidates (same shape as album identify status)
+- [x] implement `POST /api/items/identify/<task_id>/apply` — preview tag diff for selected candidate against the item group
+- [x] implement `POST /api/items/identify/<task_id>/confirm` — create album via `lib.add_album(items)`, apply matched metadata to DB, then write tags to files. On DB/creation failure: rollback via `album.remove()`, restore original `album_id` values. On partial file write failure: log which files failed, return success with warnings (DB state is committed, partial file writes are documented as best-effort). Return new `album_id` for frontend navigation
+- [x] register items blueprint in app factory (`src/__init__.py`)
+- [x] update frontend: on the "Unknown Artist" page, show individual files with inline edit controls for artist/album fields
+- [x] update frontend: add multi-select checkboxes to group files and trigger identification via new endpoint
+- [x] write tests for `POST /api/items/<item_id>/metadata` in `tests/test_items.py` (success, missing item, empty fields)
+- [x] write tests for `POST /api/items/identify` in `tests/test_items.py` (success, empty list, invalid IDs)
+- [x] write tests for identify status/apply/confirm endpoints (status polling, apply diff preview, confirm creates album and writes tags)
+- [x] write test for partial file-write failure in confirm: mock `item.write()` to raise on one item, verify response has `"status": "ok"` with `"warnings"` array listing the failed file path, and verify DB album was still created
+- [x] run tests — must pass before next task
 
 ### Task 4: Verify acceptance criteria
 - [ ] verify both bugs are fixed (scan diff, unknown artist navigation)
