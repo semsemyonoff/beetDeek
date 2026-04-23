@@ -194,12 +194,12 @@ src/
 - [x] run tests — must pass before next task
 
 ### Task 14: Verify acceptance criteria
-- [ ] verify all routes from original app.py are accessible and functional
-- [ ] verify in-memory state works correctly across requests (identify tasks, rescan process/snapshot)
-- [ ] verify beets 2.10.0 migration: genre multi-value, relative paths, lyrics fields
-- [ ] run full test suite
-- [ ] run linter (`make lint`) — all issues must be fixed
-- [ ] verify test coverage meets 80%+ standard (`make coverage`)
+- [x] verify all routes from original app.py are accessible and functional
+- [x] verify in-memory state works correctly across requests (identify tasks, rescan process/snapshot)
+- [x] verify beets 2.10.0 migration: genre multi-value, relative paths, lyrics fields
+- [x] run full test suite
+- [x] run linter (`make lint`) — all issues must be fixed
+- [x] verify test coverage meets 80%+ standard (`make coverage`)
 
 ### Task 15: [Final] Update documentation
 - [ ] update CLAUDE.md with final modular structure, test commands, and conventions
