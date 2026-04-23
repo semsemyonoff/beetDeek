@@ -135,12 +135,12 @@ src/
 - [x] run tests — must pass before next task
 
 ### Task 8: Extract identification routes (identify blueprint)
-- [ ] create `src/routes/identify.py` — blueprint with identify/status/apply/confirm endpoints
-- [ ] use `state.identify_tasks` and `state.identify_lock` from `src/state.py`
-- [ ] update `_run_identify()` to accept `library_db` as a parameter instead of calling `_init_beets()` with no args; the request handler reads `current_app.config["LIBRARY_DB"]` and passes it when spawning the thread
-- [ ] register identify blueprint in app factory
-- [ ] write tests for identify endpoints in `tests/test_identify.py`
-- [ ] run tests — must pass before next task
+- [x] create `src/routes/identify.py` — blueprint with identify/status/apply/confirm endpoints
+- [x] use `state.identify_tasks` and `state.identify_lock` from `src/state.py`
+- [x] update `_run_identify()` to accept `library_db` as a parameter instead of calling `_init_beets()` with no args; the request handler reads `current_app.config["LIBRARY_DB"]` and passes it when spawning the thread
+- [x] register identify blueprint in app factory
+- [x] write tests for identify endpoints in `tests/test_identify.py`
+- [x] run tests — must pass before next task
 
 ### Task 9: Extract lyrics routes (lyrics blueprint)
 - [ ] create `src/routes/lyrics.py` — blueprint with all lyrics endpoints (single + bulk fetch/confirm/embed/save)
