@@ -1,0 +1,189 @@
+"""Cover art routes blueprint."""
+import os
+import sqlite3
+
+from flask import Blueprint, current_app, jsonify, send_file
+
+from src import state
+from src.utils import (
+    _album_dir_from_items,
+    _decode_path,
+    _find_cover,
+    _get_ro_conn,
+    _init_beets,
+    _save_cover_to_album,
+    log,
+)
+
+bp = Blueprint("cover", __name__)
+
+
+@bp.route("/api/album/<int:album_id>/cover")
+def album_cover(album_id):
+    try:
+        conn = _get_ro_conn()
+        a = conn.execute(
+            "SELECT artpath FROM albums WHERE id = ?", (album_id,)
+        ).fetchone()
+        album_dir = _album_dir_from_items(conn, album_id)
+        conn.close()
+    except sqlite3.OperationalError:
+        return "", 404
+
+    artpath = _decode_path(a["artpath"]) if a and a["artpath"] else None
+    if artpath and os.path.isfile(artpath):
+        return send_file(artpath)
+
+    cover = _find_cover(album_dir)
+    if cover:
+        return send_file(cover)
+
+    return "", 404
+
+
+@bp.route("/api/album/<int:album_id>/cover/fetch", methods=["POST"])
+def fetch_cover(album_id):
+    """Fetch cover art from online sources via fetchart plugin (preview)."""
+    try:
+        library_db = current_app.config["LIBRARY_DB"]
+        lib = _init_beets(library_db)
+        album = lib.get_album(album_id)
+        if not album:
+            return jsonify({"error": "Album not found"}), 404
+
+        from beets import plugins
+
+        fetchart = None
+        for p in plugins.find_plugins():
+            if p.name == "fetchart":
+                fetchart = p
+                break
+        if not fetchart:
+            return jsonify({"error": "fetchart plugin not loaded"}), 500
+
+        log.info(
+            "Fetching cover art for album_id=%d: %s - %s",
+            album_id,
+            album.albumartist,
+            album.album,
+        )
+
+        candidate = fetchart.art_for_album(album, paths=[], local_only=False)
+
+        if not candidate or not candidate.path:
+            log.info("No cover art found for album_id=%d", album_id)
+            lib._close()
+            return jsonify({"status": "ok", "found": False})
+
+        # Store candidate path temporarily for confirm step
+        # Cover previews share the identify_tasks dict with "cover_" prefix keys
+        state.identify_tasks[f"cover_{album_id}"] = {
+            "candidate_path": _decode_path(candidate.path),
+            "source": getattr(candidate, "source_name", "unknown"),
+        }
+
+        log.info(
+            "Cover art found for album_id=%d from %s: %s",
+            album_id,
+            getattr(candidate, "source_name", "?"),
+            _decode_path(candidate.path),
+        )
+
+        lib._close()
+        return jsonify(
+            {
+                "status": "ok",
+                "found": True,
+                "source": getattr(candidate, "source_name", "unknown"),
+                "preview_url": f"/api/album/{album_id}/cover/preview",
+            }
+        )
+
+    except Exception as e:
+        log.exception("Cover fetch failed for album_id=%d", album_id)
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/album/<int:album_id>/cover/preview")
+def cover_preview(album_id):
+    """Serve the fetched cover art candidate for preview."""
+    task = state.identify_tasks.get(f"cover_{album_id}")
+    if not task or not task.get("candidate_path"):
+        return "", 404
+    path = task["candidate_path"]
+    if os.path.isfile(path):
+        return send_file(path)
+    return "", 404
+
+
+@bp.route("/api/album/<int:album_id>/cover/confirm", methods=["POST"])
+def confirm_cover(album_id):
+    """Save fetched cover to album directory and embed into files."""
+    task = state.identify_tasks.pop(f"cover_{album_id}", None)
+    if not task or not task.get("candidate_path"):
+        return jsonify({"error": "No cover art to confirm"}), 400
+
+    try:
+        library_db = current_app.config["LIBRARY_DB"]
+        lib = _init_beets(library_db)
+        album = lib.get_album(album_id)
+        if not album:
+            return jsonify({"error": "Album not found"}), 404
+
+        candidate_path = task["candidate_path"]
+        if not os.path.isfile(candidate_path):
+            return jsonify({"error": "Cover art file not found"}), 404
+
+        log.info("Saving cover art for album_id=%d from %s", album_id, candidate_path)
+
+        _save_cover_to_album(album, candidate_path)
+
+        log.info("Cover art saved and embedded for album_id=%d", album_id)
+        lib._close()
+        return jsonify({"status": "ok"})
+
+    except Exception as e:
+        log.exception("Cover confirm failed for album_id=%d", album_id)
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/album/<int:album_id>/cover/upload", methods=["POST"])
+def upload_cover(album_id):
+    """Upload a cover art image, save to album dir and embed into files."""
+    import tempfile
+
+    from flask import request
+
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"error": "Empty filename"}), 400
+
+    try:
+        library_db = current_app.config["LIBRARY_DB"]
+        lib = _init_beets(library_db)
+        album = lib.get_album(album_id)
+        if not album:
+            return jsonify({"error": "Album not found"}), 404
+
+        ext = os.path.splitext(f.filename)[1] or ".jpg"
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir="/tmp")
+        f.save(tmp)
+        tmp.close()
+
+        log.info("Uploading cover art for album_id=%d: %s", album_id, f.filename)
+
+        _save_cover_to_album(album, tmp.name)
+
+        if os.path.exists(tmp.name):
+            os.unlink(tmp.name)
+
+        log.info("Cover art uploaded and embedded for album_id=%d", album_id)
+        lib._close()
+        return jsonify({"status": "ok"})
+
+    except Exception as e:
+        log.exception("Cover upload failed for album_id=%d", album_id)
+        return jsonify({"error": str(e)}), 500

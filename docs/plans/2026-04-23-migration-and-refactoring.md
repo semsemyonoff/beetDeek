@@ -122,11 +122,11 @@ src/
 - [x] run tests — must pass before next task
 
 ### Task 6: Extract cover art routes (cover blueprint)
-- [ ] create `src/routes/cover.py` — blueprint with all cover art endpoints (GET cover, POST fetch, GET preview, POST confirm, POST upload)
-- [ ] preserve existing cover preview storage: cover previews are stored in `state.identify_tasks[f"cover_{album_id}"]` (app.py:593,623) — do NOT create a separate `cover_previews` dict, keep using the shared `identify_tasks` store with `cover_` prefix keys
-- [ ] register cover blueprint in app factory
-- [ ] write tests for cover endpoints in `tests/test_cover.py` (backend route behavior: response codes, JSON shape, state mutations)
-- [ ] run tests — must pass before next task
+- [x] create `src/routes/cover.py` — blueprint with all cover art endpoints (GET cover, POST fetch, GET preview, POST confirm, POST upload)
+- [x] preserve existing cover preview storage: cover previews are stored in `state.identify_tasks[f"cover_{album_id}"]` (app.py:593,623) — do NOT create a separate `cover_previews` dict, keep using the shared `identify_tasks` store with `cover_` prefix keys
+- [x] register cover blueprint in app factory
+- [x] write tests for cover endpoints in `tests/test_cover.py` (backend route behavior: response codes, JSON shape, state mutations)
+- [x] run tests — must pass before next task
 
 ### Task 7: Extract genre routes (genres blueprint)
 - [ ] create `src/routes/genres.py` — blueprint with genre fetch/confirm/save endpoints
