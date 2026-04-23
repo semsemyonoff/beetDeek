@@ -424,6 +424,13 @@ def items_confirm(task_id):
                 album.remove()
             except Exception:
                 pass
+            # Restore original album_ids so items don't reference the deleted album
+            for item in items:
+                item.album_id = original_album_ids.get(item.id, item.album_id)
+                try:
+                    item.store()
+                except Exception:
+                    pass
             task["status"] = "done"
             return jsonify({"error": f"Failed to apply metadata: {e}"}), 500
 
