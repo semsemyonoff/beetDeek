@@ -369,10 +369,9 @@ def items_confirm(task_id):
     album_match = matches[candidate_index]
     item_ids = task.get("item_ids", [])
 
-    if lib is None:
-        lib = _init_beets(current_app.config["LIBRARY_DB"])
-
     try:
+        if lib is None:
+            lib = _init_beets(current_app.config["LIBRARY_DB"])
         # Load item objects and record original album_ids for rollback
         items = []
         original_album_ids = {}

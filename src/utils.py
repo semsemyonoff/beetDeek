@@ -157,15 +157,15 @@ def _resize_image(src_path, max_size, quality=95):
 
     from PIL import Image
 
-    img = Image.open(src_path)
-    img.thumbnail((max_size, max_size), Image.LANCZOS)
+    with Image.open(src_path) as img:
+        img.thumbnail((max_size, max_size), Image.LANCZOS)
 
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
 
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg", dir="/tmp")
-    img.save(tmp, format="JPEG", quality=quality, optimize=True)
-    tmp.close()
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg", dir="/tmp")
+        img.save(tmp, format="JPEG", quality=quality, optimize=True)
+        tmp.close()
     return tmp.name
 
 
