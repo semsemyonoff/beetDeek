@@ -236,7 +236,7 @@ async function pollItemsIdentify(taskId) {
     try {
         const r = await fetch(`/api/items/identify/${taskId}/status`);
         const d = await r.json();
-        if (d.status === "running") return;
+        if (d.status === "running" || d.status === "confirming") return;
         clearInterval(_itemsIdentifyPoll);
         const resultsEl = $("#items-identify-results");
         if (!resultsEl) return;

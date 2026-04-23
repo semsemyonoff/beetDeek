@@ -256,6 +256,9 @@ def apply_match(album_id):
     except sqlite3.OperationalError as e:
         return jsonify({"error": str(e)}), 500
 
+    if not a:
+        return jsonify({"error": "Album not found"}), 404
+
     album_data = info.item_data if hasattr(info, "item_data") else {}
     album_diff = {}
     for field in ["album", "albumartist", "year", "label", "mb_albumid"]:
