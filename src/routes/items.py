@@ -389,14 +389,28 @@ def items_confirm(task_id):
             task["status"] = "done"
             return jsonify({"error": f"Failed to create album: {e}"}), 500
 
-        # Apply track-level metadata to item objects in memory and persist
-        album_match.apply_metadata()
+        # Sync the new album_id onto mapping items (they are different Python objects
+        # from the fresh items passed to add_album, which already had album_id set).
         for item in album_match.mapping.keys():
-            item.store()
+            item.album_id = album.id
 
-        # Apply album-level metadata and persist
-        album_match.apply_album_metadata(album)
-        album.store()
+        # Apply track-level and album-level metadata; roll back album on failure
+        try:
+            album_match.apply_metadata()
+            for item in album_match.mapping.keys():
+                item.store()
+
+            # Apply album-level metadata and persist
+            album_match.apply_album_metadata(album)
+            album.store()
+        except Exception as e:
+            log.exception("Failed to apply metadata for items task %s", task_id)
+            try:
+                album.remove()
+            except Exception:
+                pass
+            task["status"] = "done"
+            return jsonify({"error": f"Failed to apply metadata: {e}"}), 500
 
         # Write tags to files (best-effort; partial failures return warnings)
         warnings = []
