@@ -367,8 +367,12 @@ async function confirmItemsMatch(taskId, candidateIndex) {
             msg += `<br><small style="color:#e9a84c">Warnings: ${d.warnings.map(esc).join("; ")}</small>`;
         }
         if (diffArea) diffArea.innerHTML = `<div style="color:#4ecca3;padding:1rem;text-align:center">${msg}</div>`;
-        // Bust artist cache so Unknown Artist page re-fetches after navigation back
-        delete _artistCache["Unknown Artist"];
+        // Bust caches so library and any artist page re-fetch after navigation.
+        // Clear the whole artist cache: the new album's albumartist may differ
+        // from "Unknown Artist", and a previously visited artist page would
+        // otherwise show stale data without the newly confirmed album.
+        _artistCache = {};
+        _libraryCache = null;
         // Navigate to new album
         setTimeout(() => navigate(`album/${d.album_id}`), 1200);
     } catch (e) {

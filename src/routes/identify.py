@@ -299,9 +299,9 @@ def confirm_match(album_id):
         lib = task.pop("_lib", None)
 
     album_match = matches[candidate_index]
-    if lib is None:
-        lib = _init_beets(current_app.config["LIBRARY_DB"])
     try:
+        if lib is None:
+            lib = _init_beets(current_app.config["LIBRARY_DB"])
         album = lib.get_album(album_id)
         if not album:
             task["status"] = "done"

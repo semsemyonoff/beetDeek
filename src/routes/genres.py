@@ -36,8 +36,6 @@ def fetch_genre_preview(album_id):
         if not lastgenre:
             return jsonify({"error": "lastgenre plugin not loaded"}), 500
 
-        old_genre = album.get("genres") or []
-
         log.info(
             "Fetching genre preview for album_id=%d: %s - %s",
             album_id,
@@ -51,16 +49,27 @@ def fetch_genre_preview(album_id):
         # pretend flag (thread A sets True, thread B sets False, thread A runs
         # _process with pretend=False and actually writes the genre).
         with _genre_plugin_lock:
+            # Re-load the album inside the lock so _process() operates on the
+            # current DB state. Without this, a concurrent /genre/save that
+            # committed between the initial load and lock acquisition could leave
+            # the stale object with a non-empty genres field, causing _process()
+            # with force=false to skip the Last.fm lookup entirely and return the
+            # stale value as new_genre — a bogus diff. Loading fresh here also
+            # gives us the correct old_genre to restore afterwards.
+            fresh = lib.get_album(album_id)
+            if not fresh:
+                return jsonify({"error": "Album not found"}), 404
+            old_genre = fresh.get("genres") or []
             lastgenre.config["pretend"].set(True)
             try:
-                lastgenre._process(album, write=False)
-                new_genre = album.get("genres", "") or ""
+                lastgenre._process(fresh, write=False)
+                new_genre = fresh.get("genres", "") or ""
             finally:
                 lastgenre.config["pretend"].set(False)
                 # Restore in-memory state inside the lock so it always runs,
                 # even if _process raises.
-                album.genres = old_genre
-                album.store()
+                fresh.genres = old_genre
+                fresh.store()
 
         log.info("Genre preview for album_id=%d: %r -> %r", album_id, old_genre, new_genre)
 
@@ -113,10 +122,19 @@ def confirm_genre(album_id):
         # is a singleton on the plugin, and a concurrent preview request could
         # set pretend=True before _process runs, causing confirm to silently
         # skip writing the genre.
+        # Re-load the album inside the lock so _process() operates on the
+        # current DB state. Without this, a concurrent /genre/save that
+        # committed between the initial load and lock acquisition could result
+        # in _process() with force=false skipping the Last.fm lookup (because
+        # the stale album has a non-empty genres field) and then writing the
+        # stale genre back to DB, overwriting the manual save.
         with _genre_plugin_lock:
-            lastgenre._process(album, write=True)
+            fresh = lib.get_album(album_id)
+            if not fresh:
+                return jsonify({"error": "Album not found"}), 404
+            lastgenre._process(fresh, write=True)
 
-        new_genre = album.get("genres", "") or ""
+        new_genre = fresh.get("genres", "") or ""
         log.info("Genre written for album_id=%d: %s", album_id, new_genre)
 
         return jsonify({"status": "ok", "genre": _format_genre(new_genre)})
@@ -147,15 +165,22 @@ def save_genre(album_id):
         genres_list = [g.strip() for g in genre.split(",") if g.strip()]
         # beets 2.10.0: genres is the native list field; genre (singular) is
         # deprecated and removed in 3.0. Write only to genres.
-        album.genres = genres_list
-        album.store()
+        # Hold _genre_plugin_lock across the entire save (album + all items) so
+        # that a concurrent confirm_genre() / preview-restore cannot interleave
+        # its _process() or old_genre write between album.store() and the
+        # per-item stores, which would leave the album and track genres mixed.
         write_failures = []
-        for item in album.items():
-            item.genres = genres_list
-            item.store()
-            if not item.try_write():
-                log.warning("Failed to write genre tag for track %d: %s", item.track, item.title)
-                write_failures.append(item.id)
+        with _genre_plugin_lock:
+            album.genres = genres_list
+            album.store()
+            for item in album.items():
+                item.genres = genres_list
+                item.store()
+                if not item.try_write():
+                    log.warning(
+                        "Failed to write genre tag for track %d: %s", item.track, item.title
+                    )
+                    write_failures.append(item.id)
 
         log.info("Genre manually set for album_id=%d: %s", album_id, genre)
         if write_failures:

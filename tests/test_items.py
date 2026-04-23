@@ -443,6 +443,51 @@ class TestItemsConfirm:
         # apply_metadata not called since add_album failed first
         mock_match.apply_metadata.assert_not_called()
 
+    def test_rolls_back_metadata_on_apply_metadata_failure(self, client, mocker):
+        """Rollback reloads fresh items from DB so partially-written metadata is reverted."""
+        mock_item = mocker.MagicMock()
+        mock_item.id = 1
+        mock_item.album_id = 10
+        mock_item.title = "Original Title"
+
+        # fresh_item simulates what lib.get_item returns during rollback —
+        # it would have the partially-written new value from apply_metadata.
+        fresh_item = mocker.MagicMock()
+        fresh_item.id = 1
+
+        mock_album = mocker.MagicMock()
+        mock_album.id = 42
+
+        mock_match = mocker.MagicMock()
+        mock_match.mapping = {mock_item: mocker.MagicMock()}
+        mock_match.apply_metadata.side_effect = RuntimeError("metadata error")
+
+        # get_item is called twice: once for initial load, once for rollback reload
+        mock_lib = mocker.MagicMock()
+        mock_lib.get_item.side_effect = [mock_item, fresh_item]
+        mock_lib.add_album.return_value = mock_album
+
+        mocker.patch("src.routes.items._init_beets", return_value=mock_lib)
+
+        state.identify_tasks["items_c8"] = {
+            "task_id": "c8",
+            "status": "done",
+            "_matches": [mock_match],
+            "item_ids": [1],
+        }
+
+        resp = client.post("/api/items/identify/c8/confirm", json={"candidate_index": 0})
+        assert resp.status_code == 500
+        assert "error" in resp.get_json()
+        # album record removed on failure
+        mock_album.remove.assert_called_once_with(with_items=False)
+        # rollback reloaded a fresh item and called store() on it
+        assert fresh_item.store.called
+        # original title was assigned to the fresh item
+        assert fresh_item.title == "Original Title"
+        # _matches cleared on rollback to prevent retry with stale mapping items
+        assert "_matches" not in state.identify_tasks["items_c8"]
+
     def test_task_status_set_to_done_after_success(self, client, mocker):
         mock_item = mocker.MagicMock()
         mock_item.id = 1

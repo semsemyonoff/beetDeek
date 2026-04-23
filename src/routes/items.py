@@ -34,6 +34,120 @@ from src.utils import _get_ro_conn, _init_beets, _resolve_path, log
 
 bp = Blueprint("items", __name__)
 
+# Fields that apply_metadata() may write to item rows.  Captured before any
+# store() call so the rollback path can fully restore the original DB state.
+# Covers all fields that beets writes via item.update(data) in AlbumMatch.apply_metadata():
+# - TrackInfo.item_data fields (after MEDIA_FIELD_MAP renaming: track_id→mb_trackid,
+#   release_track_id→mb_releasetrackid, medium→disc, medium_index→track,
+#   artist_id→mb_artistid, artists_ids→mb_artistids)
+# - AlbumInfo.item_data fields merged in via merge_with_album() (after renaming:
+#   album_id→mb_albumid, artist→albumartist, artists→albumartists,
+#   artist_id→mb_albumartistid, artists_ids→mb_albumartistids,
+#   artist_credit→albumartist_credit, artists_credit→albumartists_credit,
+#   artist_sort→albumartist_sort, artists_sort→albumartists_sort,
+#   mediums→disctotal, releasegroup_id→mb_releasegroupid, va→comp)
+# Also covers fields cleared by item.clear() when import.from_scratch is enabled:
+# item.clear() sets all Item._media_tag_fields to None before item.update(data) is
+# called, so a mid-flight failure can permanently zero out any _media_tag_field not
+# in this snapshot.  All writable media tag fields are included below to handle
+# both the normal update path and the from_scratch clear+update path.
+_ROLLBACK_FIELDS = (
+    # Core title/artist fields
+    "title",
+    "artist",
+    "artist_credit",
+    "artists",
+    "artists_credit",
+    "artist_sort",
+    "artists_sort",
+    # Album-level artist fields
+    "album",
+    "albumartist",
+    "albumartist_credit",
+    "albumartists",
+    "albumartists_credit",
+    "albumartist_sort",
+    "albumartists_sort",
+    # Date fields
+    "year",
+    "month",
+    "day",
+    "original_year",
+    "original_month",
+    "original_day",
+    # Track/disc numbering
+    "track",
+    "tracktotal",
+    "disc",
+    "disctotal",
+    "track_alt",
+    "disctitle",
+    # Release metadata
+    "comp",
+    "genres",
+    "albumtype",
+    "albumtypes",
+    "albumstatus",
+    "albumdisambig",
+    "label",
+    "catalognum",
+    "barcode",
+    "country",
+    "media",
+    "language",
+    "asin",
+    "isrc",
+    "script",
+    "style",
+    "release_group_title",
+    "releasegroupdisambig",
+    # Discogs fields
+    "discogs_albumid",
+    "discogs_artistid",
+    "discogs_labelid",
+    # Classical/extended track fields
+    "arranger",
+    "bpm",
+    "composer",
+    "composer_sort",
+    "initial_key",
+    "length",
+    "lyricist",
+    "remixer",
+    "trackdisambig",
+    "work",
+    "work_disambig",
+    # Provenance
+    "data_source",
+    "data_url",
+    # MusicBrainz IDs
+    "mb_trackid",
+    "mb_albumid",
+    "mb_albumartistid",
+    "mb_albumartistids",
+    "mb_artistid",
+    "mb_artistids",
+    "mb_releasetrackid",
+    "mb_releasegroupid",
+    "mb_workid",
+    # Fields cleared by item.clear() in from_scratch mode that are NOT written
+    # back by item.update(match_data) — must be snapped so rollback restores them.
+    "comments",
+    "encoder",
+    "grouping",
+    "lyrics",
+    # ReplayGain / R128 loudness fields
+    "rg_track_gain",
+    "rg_track_peak",
+    "rg_album_gain",
+    "rg_album_peak",
+    "r128_track_gain",
+    "r128_album_gain",
+    # AcoustID fingerprint fields
+    "acoustid_fingerprint",
+    "acoustid_id",
+)
+
 
 # ---------------------------------------------------------------------------
 # Private helpers
@@ -372,9 +486,14 @@ def items_confirm(task_id):
     try:
         if lib is None:
             lib = _init_beets(current_app.config["LIBRARY_DB"])
-        # Load item objects and record original album_ids for rollback
+        # Load item objects and record original state for rollback.
+        # Snapshot all _ROLLBACK_FIELDS now (items are freshly loaded from DB,
+        # so this captures pre-modification values).  If apply_metadata() stores
+        # some items before failing, the rollback can restore the full original
+        # metadata — not just album_id.
         items = []
         original_album_ids = {}
+        original_metadata = {}
         for item_id in item_ids:
             item = lib.get_item(item_id)
             if item is None:
@@ -382,6 +501,9 @@ def items_confirm(task_id):
                 return jsonify({"error": f"Item {item_id} not found"}), 404
             items.append(item)
             original_album_ids[item_id] = item.album_id
+            snap = {f: getattr(item, f, None) for f in _ROLLBACK_FIELDS}
+            snap["album_id"] = item.album_id
+            original_metadata[item_id] = snap
 
         log.info(
             "Confirming items identify task=%s candidate=%d: %r - %r",
@@ -391,12 +513,72 @@ def items_confirm(task_id):
             album_match.info.album,
         )
 
-        # Create new album record first; on failure nothing has been modified yet
+        # Create new album record first; on failure attempt cleanup below.
+        # NOTE: beets' transaction __exit__ always calls commit() even when
+        # unwinding due to an exception, so add_album() may commit a partial
+        # state (album row created, only some items updated) before raising.
+        #
+        # Snapshot the max album ID before calling add_album so we can detect
+        # the edge case where album.add() commits a new album row but then
+        # raises before the item loop (leaving no in-memory album_id changes on
+        # items to detect from). An album created by add_album that has no items
+        # linked to it is guaranteed to be an orphan.
         album = None
+        try:
+            with lib.transaction() as tx:
+                rows = tx.query("SELECT COALESCE(MAX(id), 0) FROM albums")
+                max_album_id_before = rows[0][0]
+        except Exception:
+            max_album_id_before = 0
+            log.warning(
+                "Failed to record max album ID before add_album in task %s", task_id
+            )
         try:
             album = lib.add_album(items)
         except Exception as e:
             log.exception("Failed to create album for items task %s", task_id)
+            # add_album() sets item.album_id = album.id in-memory before each
+            # item.store(); detect the orphan album id from items whose in-memory
+            # album_id changed, then remove the orphan row.
+            orphan_album_ids = {
+                item.album_id
+                for item in items
+                if item.album_id != original_album_ids.get(item.id)
+                and item.album_id is not None
+            }
+            # Also query for albums created during add_album that are not linked
+            # to any items — covers the case where album.add() committed a row
+            # but the exception fired before the item loop assigned album_id to
+            # any item, so no in-memory change is visible.
+            try:
+                with lib.transaction() as tx:
+                    rows = tx.query(
+                        "SELECT a.id FROM albums a "
+                        "WHERE a.id > ? "
+                        "AND NOT EXISTS "
+                        "(SELECT 1 FROM items i WHERE i.album_id = a.id)",
+                        (max_album_id_before,),
+                    )
+                    for row in rows:
+                        orphan_album_ids.add(row[0])
+            except Exception:
+                log.exception(
+                    "Failed to scan for orphan albums after add_album failure "
+                    "in task %s — some album rows may be orphaned",
+                    task_id,
+                )
+            for orphan_id in orphan_album_ids:
+                try:
+                    orphan = lib.get_album(orphan_id)
+                    if orphan is not None:
+                        orphan.remove(with_items=False)
+                except Exception:
+                    log.exception(
+                        "Failed to remove orphan album %s after add_album failure "
+                        "in task %s — album row may be orphaned",
+                        orphan_id,
+                        task_id,
+                    )
             for item in items:
                 item.album_id = original_album_ids.get(item.id, item.album_id)
                 item.store()
@@ -420,18 +602,54 @@ def items_confirm(task_id):
         except Exception as e:
             log.exception("Failed to apply metadata for items task %s", task_id)
             try:
-                album.remove()
+                # with_items=False: only remove the album record; keep the item
+                # rows in the DB so the subsequent item.store() calls can restore
+                # their original album_id values (store() issues UPDATE, not INSERT).
+                album.remove(with_items=False)
             except Exception:
-                pass
-            # Restore original album_ids so items don't reference the deleted album
-            for item in items:
-                item.album_id = original_album_ids.get(item.id, item.album_id)
+                log.exception(
+                    "Rollback album.remove() failed for items task %s album_id=%s — "
+                    "album row may be orphaned",
+                    task_id,
+                    album.id,
+                )
+            # Restore full original metadata so items don't reference the
+            # deleted album and any already-stored field changes are reverted.
+            # apply_metadata() writes to album_match.mapping.keys() objects
+            # (separate Python objects), so some of those items may have been
+            # flushed to DB before the failure.  We reload each item fresh from
+            # the DB (picking up any partially-written values) so that assigning
+            # the original snapshot values is seen as a real change by beets'
+            # dirty-tracking (which skips unchanged assignments).  This ensures
+            # item.store() writes all original values back, not just album_id.
+            rollback_failures = []
+            for iid, snap in original_metadata.items():
+                fresh = lib.get_item(iid)
+                if fresh is None:
+                    continue
+                for field, value in snap.items():
+                    setattr(fresh, field, value)
                 try:
-                    item.store()
+                    fresh.store()
                 except Exception:
-                    pass
+                    log.exception(
+                        "Rollback item.store() failed for item %s in task %s — "
+                        "item metadata may be partially modified",
+                        iid,
+                        task_id,
+                    )
+                    rollback_failures.append(iid)
+            # Clear _matches so a retry cannot reuse the now-stale in-memory
+            # mapping items (their dirty-tracking _original reflects the
+            # candidate values after apply_metadata was called, so a second
+            # apply_metadata + store() on the same objects would silently skip
+            # writing fields that were already flushed before the failure).
+            task.pop("_matches", None)
             task["status"] = "done"
-            return jsonify({"error": f"Failed to apply metadata: {e}"}), 500
+            err_resp = {"error": f"Failed to apply metadata: {e}"}
+            if rollback_failures:
+                err_resp["rollback_failures"] = rollback_failures
+            return jsonify(err_resp), 500
 
         # Write tags to files (best-effort; partial failures return warnings)
         warnings = []
