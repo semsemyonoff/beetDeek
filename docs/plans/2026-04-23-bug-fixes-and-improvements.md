@@ -1,7 +1,7 @@
 # beetDeek: Bug Fixes and Improvements
 
 ## Overview
-- Fix three bugs: scan always showing re-creation, unknown artist navigation, cover art page not refreshing
+- Fix two bugs: scan always showing re-creation, unknown artist navigation
 - Add unknown artist management UI (new feature)
 
 **Prerequisite**: This plan assumes the migration/refactoring plan (`2026-04-23-migration-and-refactoring.md`) is complete — code lives in `src/` with Flask Blueprints, beets 2.10.0, and test infrastructure is in place.
@@ -30,13 +30,13 @@
 ## Implementation Steps
 
 ### Task 1: Bug fix — Scan always shows re-creation for all albums
-- [ ] **Root cause**: `_compute_scan_diff()` in `src/routes/scan.py` compares item IDs between before/after snapshots. When `beet import` deletes and re-inserts items (new IDs), all items appear as removed+added even if content is unchanged
-- [ ] fix: add `path` to `_take_snapshot()` query — snapshot becomes `{id: (title, artist, album_id, path)}`
-- [ ] fix: update `_compute_scan_diff()` to match by normalized path first, then by ID. Items with the same path in both snapshots are unchanged regardless of ID
-- [ ] note: beets 2.10.0 stores relative paths — normalize via `_resolve_path()` (resolves against `current_app.config["LIBRARY_ROOT"]`, set up during migration plan) before comparison
-- [ ] write tests for `_compute_scan_diff()`: no changes, only additions, only removals, ID reassignment with same path, mixed scenario
-- [ ] write tests for `_take_snapshot()` with path data
-- [ ] run tests — must pass before next task
+- [x] **Root cause**: `_compute_scan_diff()` in `src/routes/scan.py` compares item IDs between before/after snapshots. When `beet import` deletes and re-inserts items (new IDs), all items appear as removed+added even if content is unchanged
+- [x] fix: add `path` to `_take_snapshot()` query — snapshot becomes `{id: (title, artist, album_id, path)}`
+- [x] fix: update `_compute_scan_diff()` to match by normalized path first, then by ID. Items with the same path in both snapshots are unchanged regardless of ID
+- [x] note: beets 2.10.0 stores relative paths — normalize via `_resolve_path()` (resolves against `current_app.config["LIBRARY_ROOT"]`, set up during migration plan) before comparison
+- [x] write tests for `_compute_scan_diff()`: no changes, only additions, only removals, ID reassignment with same path, mixed scenario
+- [x] write tests for `_take_snapshot()` with path data
+- [x] run tests — must pass before next task
 
 ### Task 2: Bug fix — Unknown artist navigation
 - [ ] **Root cause**: `/api/library` maps `NULL`/empty `albumartist` to `"Unknown Artist"` display string (utils or library route), but `/api/artist` queries `WHERE a.albumartist = ?` which can't match NULL/empty values when passed `"Unknown Artist"`
@@ -44,15 +44,7 @@
 - [ ] write tests for unknown artist query: NULL albumartist, empty string albumartist, normal artist with real name
 - [ ] run tests — must pass before next task
 
-### Task 3: Bug fix — Page not refreshing after cover art update
-**Exception to "every task MUST include tests" rule**: This is a frontend-only bug. The backend endpoints already return correct data — the issue is JS handler behavior (missing `loadAlbum()` call or stale image cache). Flask test client cannot verify browser image rendering or JS callback execution. Backend response shape is already covered by existing cover route tests.
-- [ ] investigate cover confirm/upload JS handlers in `src/templates/index.html` — verify whether `loadAlbum()` is called on success callback and whether the cover `<img>` src gets updated
-- [ ] fix frontend: ensure `loadAlbum(albumId)` fires after successful cover confirm/upload response
-- [ ] fix frontend: add cache-busting query param (e.g., `?t=Date.now()`) to cover image `src` URL so browser re-fetches instead of serving cached version
-- [ ] manual verification: start dev server, upload a cover, confirm it updates in the UI without a manual page reload
-- [ ] manual verification: fetch a cover from online source, confirm preview and then apply — verify image updates immediately
-
-### Task 4: Unknown artist management UI (new feature)
+### Task 3: Unknown artist management UI (new feature)
 - [ ] **Design subtask — album creation from loose items**: Before implementing, resolve these design questions:
   - **Beets API for album creation**: Use `lib.add_album(items)` which creates an album record and sets each item's `album_id`. Verify this works for items that already have an `album_id` (orphaned items in a placeholder album) vs items with `album_id = None`
   - **Transaction behavior**: `lib.add_album()` + `apply_metadata()` + `item.write()` cannot be truly atomic — filesystem tag writes are not transactional. Strategy: (1) create album + apply DB metadata first, (2) then write tags to files in a loop. If a file write fails mid-batch, DB rollback (`album.remove()`, restore original `album_id`) is best-effort — files already written will retain new tags. Document this explicitly: partial file writes are possible on failure, user can re-run or manually fix. Do NOT attempt to capture/restore original file tags (too complex, fragile)
@@ -80,14 +72,14 @@
 - [ ] write test for partial file-write failure in confirm: mock `item.write()` to raise on one item, verify response has `"status": "ok"` with `"warnings"` array listing the failed file path, and verify DB album was still created
 - [ ] run tests — must pass before next task
 
-### Task 5: Verify acceptance criteria
-- [ ] verify all three bugs are fixed (scan diff, unknown artist navigation, cover refresh)
+### Task 4: Verify acceptance criteria
+- [ ] verify both bugs are fixed (scan diff, unknown artist navigation)
 - [ ] verify unknown artist management UI works end-to-end (edit single item, identify group)
 - [ ] run full test suite
 - [ ] run linter (`make lint`) — all issues must be fixed
 - [ ] verify test coverage meets 80%+ standard (`make coverage`)
 
-### Task 6: [Final] Update documentation
+### Task 5: [Final] Update documentation
 - [ ] update CLAUDE.md with new items blueprint and endpoints
 - [ ] update README.md API reference if needed
 
@@ -103,13 +95,6 @@ The current `_take_snapshot()` captures `{id: (title, artist, album_id)}`. The d
 `/api/artist`: `WHERE a.albumartist = ?` with `name="Unknown Artist"` — no row has `albumartist = 'Unknown Artist'`, so query returns empty.
 
 **Fix**: When `name == "Unknown Artist"`, change query to `WHERE (a.albumartist IS NULL OR a.albumartist = '')`.
-
-### Cover Art Refresh — Investigation Points
-- Backend `POST /api/album/<id>/cover/confirm` and `POST /api/album/<id>/cover/upload` return JSON success
-- **This is a frontend bug** — Flask route tests can verify the response shape (status, album_id) but cannot test whether the browser actually re-renders the image
-- Frontend handler should call `loadAlbum(albumId)` on success callback — verify this fires
-- Browser aggressively caches same-URL images (`GET /api/album/<id>/cover`) — the frontend must append `?t=Date.now()` to the `<img>` src to force re-fetch
-- Requires manual verification after fix
 
 ### Unknown Artist Management — API Design
 ```
@@ -142,4 +127,3 @@ POST /api/items/identify/<task_id>/confirm
 **Manual verification:**
 - Test scan with a real beets library to verify diff shows only actual changes
 - Test unknown artist flow with actual untagged files (navigate, edit, identify)
-- Test cover art upload and fetch with real images in both themes

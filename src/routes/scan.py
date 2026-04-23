@@ -12,7 +12,7 @@ import sys
 from flask import Blueprint, current_app, jsonify, request
 
 from src import state
-from src.utils import _get_ro_conn, log
+from src.utils import _get_ro_conn, _resolve_path, log
 
 bp = Blueprint("scan", __name__)
 
@@ -23,28 +23,57 @@ bp = Blueprint("scan", __name__)
 
 
 def _take_snapshot():
-    """Snapshot current items {id: (title, artist, album_id)} from the DB."""
+    """Snapshot current items {id: (title, artist, album_id, path)} from the DB."""
     try:
         conn = _get_ro_conn()
-        rows = conn.execute("SELECT id, title, artist, album_id FROM items").fetchall()
+        rows = conn.execute("SELECT id, title, artist, album_id, path FROM items").fetchall()
         conn.close()
-        return {r["id"]: (r["title"], r["artist"], r["album_id"]) for r in rows}
+        return {
+            r["id"]: (r["title"], r["artist"], r["album_id"], _resolve_path(r["path"]))
+            for r in rows
+        }
     except Exception:
         return {}
 
 
 def _compute_scan_diff(before, after):
-    """Compare snapshots and return added/removed lists."""
-    before_ids = set(before.keys())
-    after_ids = set(after.keys())
+    """Compare snapshots and return added/removed lists.
+
+    Match items by normalized path first. Items sharing the same path in both
+    snapshots are unchanged regardless of ID changes (beet import may delete and
+    re-insert items with new IDs for the same physical file). Items without a
+    path fall back to ID-based comparison.
+    """
+    before_path_map = {path: iid for iid, (_, _, _, path) in before.items() if path}
+    after_path_map = {path: iid for iid, (_, _, _, path) in after.items() if path}
+
+    common_paths = set(before_path_map) & set(after_path_map)
+    new_paths = set(after_path_map) - common_paths
+    gone_paths = set(before_path_map) - common_paths
+
+    before_no_path_ids = {iid for iid, (_, _, _, path) in before.items() if not path}
+    after_no_path_ids = {iid for iid, (_, _, _, path) in after.items() if not path}
+
     added = []
-    for item_id in sorted(after_ids - before_ids):
-        title, artist, _ = after[item_id]
-        added.append({"id": item_id, "title": title, "artist": artist})
+    for path in new_paths:
+        iid = after_path_map[path]
+        title, artist, *_ = after[iid]
+        added.append({"id": iid, "title": title, "artist": artist})
+    for iid in after_no_path_ids - before_no_path_ids:
+        title, artist, *_ = after[iid]
+        added.append({"id": iid, "title": title, "artist": artist})
+    added.sort(key=lambda x: x["id"])
+
     removed = []
-    for item_id in sorted(before_ids - after_ids):
-        title, artist, _ = before[item_id]
-        removed.append({"id": item_id, "title": title, "artist": artist})
+    for path in gone_paths:
+        iid = before_path_map[path]
+        title, artist, *_ = before[iid]
+        removed.append({"id": iid, "title": title, "artist": artist})
+    for iid in before_no_path_ids - after_no_path_ids:
+        title, artist, *_ = before[iid]
+        removed.append({"id": iid, "title": title, "artist": artist})
+    removed.sort(key=lambda x: x["id"])
+
     return added, removed
 
 

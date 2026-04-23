@@ -28,22 +28,43 @@ class TestTakeSnapshot:
         with app.app_context():
             snap = _take_snapshot()
         assert item_id in snap
-        title, artist, aid = snap[item_id]
+        title, artist, aid, path = snap[item_id]
         assert title == "Song A"
         assert artist == "Band"
         assert aid == album_id
 
+    def test_snapshot_includes_path(self, app, db_path):
+        album_id = insert_album(db_path)
+        insert_item(db_path, album_id, path=b"/music/artist/album/track.mp3")
+        with app.app_context():
+            snap = _take_snapshot()
+        paths = [data[3] for data in snap.values()]
+        assert "/music/artist/album/track.mp3" in paths
+
 
 class TestComputeScanDiff:
+    # Helper: build a snapshot entry with path
+    def _item(self, title, artist, album_id=10, path=""):
+        return (title, artist, album_id, path)
+
     def test_no_changes(self):
-        snap = {1: ("Song", "Artist", 10)}
+        snap = {1: self._item("Song", "Artist", path="/music/song.mp3")}
+        added, removed = _compute_scan_diff(snap, snap)
+        assert added == []
+        assert removed == []
+
+    def test_no_changes_no_path(self):
+        snap = {1: self._item("Song", "Artist")}
         added, removed = _compute_scan_diff(snap, snap)
         assert added == []
         assert removed == []
 
     def test_detects_added(self):
-        before = {1: ("Old Song", "Artist", 10)}
-        after = {1: ("Old Song", "Artist", 10), 2: ("New Song", "New Artist", 10)}
+        before = {1: self._item("Old Song", "Artist", path="/music/old.mp3")}
+        after = {
+            1: self._item("Old Song", "Artist", path="/music/old.mp3"),
+            2: self._item("New Song", "New Artist", path="/music/new.mp3"),
+        }
         added, removed = _compute_scan_diff(before, after)
         assert len(added) == 1
         assert added[0]["id"] == 2
@@ -52,8 +73,11 @@ class TestComputeScanDiff:
         assert removed == []
 
     def test_detects_removed(self):
-        before = {1: ("Song A", "Artist", 10), 2: ("Song B", "Artist", 10)}
-        after = {1: ("Song A", "Artist", 10)}
+        before = {
+            1: self._item("Song A", "Artist", path="/music/a.mp3"),
+            2: self._item("Song B", "Artist", path="/music/b.mp3"),
+        }
+        after = {1: self._item("Song A", "Artist", path="/music/a.mp3")}
         added, removed = _compute_scan_diff(before, after)
         assert added == []
         assert len(removed) == 1
@@ -61,23 +85,64 @@ class TestComputeScanDiff:
         assert removed[0]["title"] == "Song B"
 
     def test_detects_added_and_removed(self):
-        before = {1: ("Gone", "Artist", 10)}
-        after = {2: ("New", "Artist", 10)}
+        before = {1: self._item("Gone", "Artist", path="/music/gone.mp3")}
+        after = {2: self._item("New", "Artist", path="/music/new.mp3")}
         added, removed = _compute_scan_diff(before, after)
         assert len(added) == 1
         assert added[0]["id"] == 2
         assert len(removed) == 1
         assert removed[0]["id"] == 1
 
+    def test_id_reassignment_same_path_shows_no_change(self):
+        """When beet import re-inserts items with new IDs for same paths, no diff."""
+        before = {
+            1: self._item("Track A", "Artist", path="/music/a.mp3"),
+            2: self._item("Track B", "Artist", path="/music/b.mp3"),
+        }
+        # Same paths, different IDs (simulates beet import re-inserting items)
+        after = {
+            10: self._item("Track A", "Artist", path="/music/a.mp3"),
+            20: self._item("Track B", "Artist", path="/music/b.mp3"),
+        }
+        added, removed = _compute_scan_diff(before, after)
+        assert added == []
+        assert removed == []
+
+    def test_mixed_scenario(self):
+        """Some items reassigned (same path), one truly removed, one truly added."""
+        before = {
+            1: self._item("Stays", "Artist", path="/music/stays.mp3"),
+            2: self._item("Gone", "Artist", path="/music/gone.mp3"),
+        }
+        after = {
+            10: self._item("Stays", "Artist", path="/music/stays.mp3"),
+            3: self._item("New", "Artist", path="/music/new.mp3"),
+        }
+        added, removed = _compute_scan_diff(before, after)
+        assert len(added) == 1
+        assert added[0]["id"] == 3
+        assert added[0]["title"] == "New"
+        assert len(removed) == 1
+        assert removed[0]["id"] == 2
+        assert removed[0]["title"] == "Gone"
+
     def test_added_sorted_by_id(self):
         before = {}
-        after = {3: ("C", "A", 1), 1: ("A", "A", 1), 2: ("B", "A", 1)}
+        after = {
+            3: self._item("C", "A", path="/music/c.mp3"),
+            1: self._item("A", "A", path="/music/a.mp3"),
+            2: self._item("B", "A", path="/music/b.mp3"),
+        }
         added, _ = _compute_scan_diff(before, after)
         ids = [item["id"] for item in added]
         assert ids == sorted(ids)
 
     def test_removed_sorted_by_id(self):
-        before = {3: ("C", "A", 1), 1: ("A", "A", 1), 2: ("B", "A", 1)}
+        before = {
+            3: self._item("C", "A", path="/music/c.mp3"),
+            1: self._item("A", "A", path="/music/a.mp3"),
+            2: self._item("B", "A", path="/music/b.mp3"),
+        }
         after = {}
         _, removed = _compute_scan_diff(before, after)
         ids = [item["id"] for item in removed]
@@ -156,7 +221,7 @@ class TestRescan:
         mock_proc = mocker.MagicMock()
         mock_proc.poll.return_value = None
         mocker.patch("src.routes.scan.subprocess.Popen", return_value=mock_proc)
-        snap = {1: ("Song", "Artist", 10)}
+        snap = {1: ("Song", "Artist", 10, "/music/song.mp3")}
         mocker.patch("src.routes.scan._take_snapshot", return_value=snap)
 
         client.post("/api/rescan")
@@ -206,10 +271,13 @@ class TestRescanStatus:
         mock_proc.returncode = 0
         state.rescan_proc = mock_proc
 
-        before = {1: ("Old Song", "Artist", 10)}
+        before = {1: ("Old Song", "Artist", 10, "/music/old.mp3")}
         state.rescan_snapshot = before
 
-        after = {1: ("Old Song", "Artist", 10), 2: ("New Song", "Artist", 10)}
+        after = {
+            1: ("Old Song", "Artist", 10, "/music/old.mp3"),
+            2: ("New Song", "Artist", 10, "/music/new.mp3"),
+        }
         mocker.patch("src.routes.scan._take_snapshot", return_value=after)
 
         resp = client.get("/api/rescan/status")
