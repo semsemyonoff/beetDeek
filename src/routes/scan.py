@@ -1,0 +1,86 @@
+"""Scan routes for beetDeek.
+
+Endpoints:
+    POST  /api/rescan         — start library rescan
+    GET   /api/rescan/status  — poll rescan status
+"""
+import subprocess
+import sys
+
+from flask import Blueprint, current_app, jsonify, request
+
+from src import state
+from src.utils import _get_ro_conn, log
+
+bp = Blueprint("scan", __name__)
+
+
+# ---------------------------------------------------------------------------
+# Private helpers (scan-specific)
+# ---------------------------------------------------------------------------
+
+
+def _take_snapshot():
+    """Snapshot current items {id: (title, artist, album_id)} from the DB."""
+    try:
+        conn = _get_ro_conn()
+        rows = conn.execute("SELECT id, title, artist, album_id FROM items").fetchall()
+        conn.close()
+        return {r["id"]: (r["title"], r["artist"], r["album_id"]) for r in rows}
+    except Exception:
+        return {}
+
+
+def _compute_scan_diff(before, after):
+    """Compare snapshots and return added/removed lists."""
+    before_ids = set(before.keys())
+    after_ids = set(after.keys())
+    added = []
+    for item_id in sorted(after_ids - before_ids):
+        title, artist, _ = after[item_id]
+        added.append({"id": item_id, "title": title, "artist": artist})
+    removed = []
+    for item_id in sorted(before_ids - after_ids):
+        title, artist, _ = before[item_id]
+        removed.append({"id": item_id, "title": title, "artist": artist})
+    return added, removed
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/api/rescan", methods=["POST"])
+def rescan():
+    mode = request.args.get("mode", "quick")
+    import_dir = current_app.config["IMPORT_DIR"]
+    with state.rescan_lock:
+        if state.rescan_proc and state.rescan_proc.poll() is None:
+            return jsonify({"status": "running"}), 409
+        state.rescan_snapshot = _take_snapshot()
+        inc = "-i" if mode == "quick" else "-I"
+        cmd = f"beet -v import -A -C {inc} {import_dir} && beet -v update -M"
+        log.info("Starting rescan (%s): %s", mode, cmd)
+        state.rescan_proc = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=sys.stderr,
+            stderr=sys.stderr,
+        )
+    return jsonify({"status": "started", "mode": mode})
+
+
+@bp.route("/api/rescan/status")
+def rescan_status():
+    if state.rescan_proc is None:
+        return jsonify({"status": "idle"})
+    if state.rescan_proc.poll() is None:
+        return jsonify({"status": "running"})
+    result = {"status": "done", "returncode": state.rescan_proc.returncode}
+    if state.rescan_snapshot is not None:
+        after = _take_snapshot()
+        added, removed = _compute_scan_diff(state.rescan_snapshot, after)
+        result["added"] = added
+        result["removed"] = removed
+    return jsonify(result)

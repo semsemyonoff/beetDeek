@@ -1,0 +1,248 @@
+"""Tests for scan blueprint routes."""
+import src.state as state
+from src.routes.scan import _compute_scan_diff, _take_snapshot
+from tests.conftest import insert_album, insert_item
+
+
+def _reset_scan_state():
+    """Reset scan globals between tests."""
+    state.rescan_proc = None
+    state.rescan_snapshot = None
+
+
+# ---------------------------------------------------------------------------
+# Unit tests for helper functions
+# ---------------------------------------------------------------------------
+
+
+class TestTakeSnapshot:
+    def test_returns_empty_dict_for_empty_db(self, app, db_path):
+        with app.app_context():
+            snap = _take_snapshot()
+        assert snap == {}
+
+    def test_returns_items_from_db(self, app, db_path):
+        album_id = insert_album(db_path)
+        item_id = insert_item(db_path, album_id, title="Song A", artist="Band")
+        with app.app_context():
+            snap = _take_snapshot()
+        assert item_id in snap
+        title, artist, aid = snap[item_id]
+        assert title == "Song A"
+        assert artist == "Band"
+        assert aid == album_id
+
+
+class TestComputeScanDiff:
+    def test_no_changes(self):
+        snap = {1: ("Song", "Artist", 10)}
+        added, removed = _compute_scan_diff(snap, snap)
+        assert added == []
+        assert removed == []
+
+    def test_detects_added(self):
+        before = {1: ("Old Song", "Artist", 10)}
+        after = {1: ("Old Song", "Artist", 10), 2: ("New Song", "New Artist", 10)}
+        added, removed = _compute_scan_diff(before, after)
+        assert len(added) == 1
+        assert added[0]["id"] == 2
+        assert added[0]["title"] == "New Song"
+        assert added[0]["artist"] == "New Artist"
+        assert removed == []
+
+    def test_detects_removed(self):
+        before = {1: ("Song A", "Artist", 10), 2: ("Song B", "Artist", 10)}
+        after = {1: ("Song A", "Artist", 10)}
+        added, removed = _compute_scan_diff(before, after)
+        assert added == []
+        assert len(removed) == 1
+        assert removed[0]["id"] == 2
+        assert removed[0]["title"] == "Song B"
+
+    def test_detects_added_and_removed(self):
+        before = {1: ("Gone", "Artist", 10)}
+        after = {2: ("New", "Artist", 10)}
+        added, removed = _compute_scan_diff(before, after)
+        assert len(added) == 1
+        assert added[0]["id"] == 2
+        assert len(removed) == 1
+        assert removed[0]["id"] == 1
+
+    def test_added_sorted_by_id(self):
+        before = {}
+        after = {3: ("C", "A", 1), 1: ("A", "A", 1), 2: ("B", "A", 1)}
+        added, _ = _compute_scan_diff(before, after)
+        ids = [item["id"] for item in added]
+        assert ids == sorted(ids)
+
+    def test_removed_sorted_by_id(self):
+        before = {3: ("C", "A", 1), 1: ("A", "A", 1), 2: ("B", "A", 1)}
+        after = {}
+        _, removed = _compute_scan_diff(before, after)
+        ids = [item["id"] for item in removed]
+        assert ids == sorted(ids)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/rescan
+# ---------------------------------------------------------------------------
+
+
+class TestRescan:
+    def setup_method(self):
+        _reset_scan_state()
+
+    def test_starts_rescan_quick_mode(self, client, mocker):
+        mock_proc = mocker.MagicMock()
+        mock_proc.poll.return_value = None  # running
+        mocker.patch("src.routes.scan.subprocess.Popen", return_value=mock_proc)
+        mocker.patch("src.routes.scan._take_snapshot", return_value={})
+
+        resp = client.post("/api/rescan")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "started"
+        assert data["mode"] == "quick"
+
+    def test_starts_rescan_full_mode(self, client, mocker):
+        mock_proc = mocker.MagicMock()
+        mock_proc.poll.return_value = None
+        popen_mock = mocker.patch(
+            "src.routes.scan.subprocess.Popen", return_value=mock_proc
+        )
+        mocker.patch("src.routes.scan._take_snapshot", return_value={})
+
+        resp = client.post("/api/rescan?mode=full")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["mode"] == "full"
+        # -I flag used for full mode
+        cmd_arg = popen_mock.call_args[0][0]
+        assert " -I " in cmd_arg
+
+    def test_quick_mode_uses_incremental_flag(self, client, mocker):
+        mock_proc = mocker.MagicMock()
+        mock_proc.poll.return_value = None
+        popen_mock = mocker.patch(
+            "src.routes.scan.subprocess.Popen", return_value=mock_proc
+        )
+        mocker.patch("src.routes.scan._take_snapshot", return_value={})
+
+        client.post("/api/rescan?mode=quick")
+        cmd_arg = popen_mock.call_args[0][0]
+        assert " -i " in cmd_arg
+
+    def test_returns_409_when_already_running(self, client, mocker):
+        mock_proc = mocker.MagicMock()
+        mock_proc.poll.return_value = None  # still running
+        state.rescan_proc = mock_proc
+
+        resp = client.post("/api/rescan")
+        assert resp.status_code == 409
+        assert resp.get_json()["status"] == "running"
+
+    def test_allows_new_scan_after_previous_finished(self, client, mocker):
+        finished_proc = mocker.MagicMock()
+        finished_proc.poll.return_value = 0  # done
+        state.rescan_proc = finished_proc
+
+        new_proc = mocker.MagicMock()
+        new_proc.poll.return_value = None
+        mocker.patch("src.routes.scan.subprocess.Popen", return_value=new_proc)
+        mocker.patch("src.routes.scan._take_snapshot", return_value={})
+
+        resp = client.post("/api/rescan")
+        assert resp.status_code == 200
+        assert resp.get_json()["status"] == "started"
+
+    def test_takes_snapshot_before_starting(self, client, mocker):
+        mock_proc = mocker.MagicMock()
+        mock_proc.poll.return_value = None
+        mocker.patch("src.routes.scan.subprocess.Popen", return_value=mock_proc)
+        snap = {1: ("Song", "Artist", 10)}
+        mocker.patch("src.routes.scan._take_snapshot", return_value=snap)
+
+        client.post("/api/rescan")
+        assert state.rescan_snapshot == snap
+
+
+# ---------------------------------------------------------------------------
+# GET /api/rescan/status
+# ---------------------------------------------------------------------------
+
+
+class TestRescanStatus:
+    def setup_method(self):
+        _reset_scan_state()
+
+    def test_returns_idle_when_no_proc(self, client):
+        resp = client.get("/api/rescan/status")
+        assert resp.status_code == 200
+        assert resp.get_json()["status"] == "idle"
+
+    def test_returns_running_when_proc_running(self, client, mocker):
+        mock_proc = mocker.MagicMock()
+        mock_proc.poll.return_value = None  # still running
+        state.rescan_proc = mock_proc
+
+        resp = client.get("/api/rescan/status")
+        assert resp.status_code == 200
+        assert resp.get_json()["status"] == "running"
+
+    def test_returns_done_with_returncode_when_finished(self, client, mocker):
+        mock_proc = mocker.MagicMock()
+        mock_proc.poll.return_value = 0
+        mock_proc.returncode = 0
+        state.rescan_proc = mock_proc
+        state.rescan_snapshot = None
+        mocker.patch("src.routes.scan._take_snapshot", return_value={})
+
+        resp = client.get("/api/rescan/status")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "done"
+        assert data["returncode"] == 0
+
+    def test_returns_diff_when_snapshot_exists(self, client, mocker):
+        mock_proc = mocker.MagicMock()
+        mock_proc.poll.return_value = 0
+        mock_proc.returncode = 0
+        state.rescan_proc = mock_proc
+
+        before = {1: ("Old Song", "Artist", 10)}
+        state.rescan_snapshot = before
+
+        after = {1: ("Old Song", "Artist", 10), 2: ("New Song", "Artist", 10)}
+        mocker.patch("src.routes.scan._take_snapshot", return_value=after)
+
+        resp = client.get("/api/rescan/status")
+        data = resp.get_json()
+        assert data["status"] == "done"
+        assert len(data["added"]) == 1
+        assert data["added"][0]["id"] == 2
+        assert data["removed"] == []
+
+    def test_no_diff_fields_when_no_snapshot(self, client, mocker):
+        mock_proc = mocker.MagicMock()
+        mock_proc.poll.return_value = 0
+        mock_proc.returncode = 0
+        state.rescan_proc = mock_proc
+        state.rescan_snapshot = None
+        mocker.patch("src.routes.scan._take_snapshot", return_value={})
+
+        resp = client.get("/api/rescan/status")
+        data = resp.get_json()
+        assert "added" not in data
+        assert "removed" not in data
+
+    def test_returns_nonzero_returncode_on_failure(self, client, mocker):
+        mock_proc = mocker.MagicMock()
+        mock_proc.poll.return_value = 1
+        mock_proc.returncode = 1
+        state.rescan_proc = mock_proc
+        state.rescan_snapshot = None
+        mocker.patch("src.routes.scan._take_snapshot", return_value={})
+
+        resp = client.get("/api/rescan/status")
+        data = resp.get_json()
+        assert data["returncode"] == 1

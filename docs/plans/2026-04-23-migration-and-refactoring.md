@@ -149,12 +149,12 @@ src/
 - [x] run tests — must pass before next task
 
 ### Task 10: Extract scan routes (scan blueprint)
-- [ ] create `src/routes/scan.py` — blueprint with rescan and status endpoints
-- [ ] use `state.rescan_lock`, `state.rescan_proc`, `state.rescan_snapshot` from `src/state.py`
-- [ ] extract `_take_snapshot()` and `_compute_scan_diff()` into scan module
-- [ ] register scan blueprint in app factory
-- [ ] write tests for scan endpoints in `tests/test_scan.py`
-- [ ] run tests — must pass before next task
+- [x] create `src/routes/scan.py` — blueprint with rescan and status endpoints
+- [x] use `state.rescan_lock`, `state.rescan_proc`, `state.rescan_snapshot` from `src/state.py`
+- [x] extract `_take_snapshot()` and `_compute_scan_diff()` into scan module
+- [x] register scan blueprint in app factory
+- [x] write tests for scan endpoints in `tests/test_scan.py`
+- [x] run tests — must pass before next task
 
 ### Task 11: Remove old app.py and update entry point
 - [ ] create new `app.py` at project root as thin entry point that calls `create_app()`
