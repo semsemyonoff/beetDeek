@@ -143,10 +143,10 @@ src/
 - [x] run tests — must pass before next task
 
 ### Task 9: Extract lyrics routes (lyrics blueprint)
-- [ ] create `src/routes/lyrics.py` — blueprint with all lyrics endpoints (single + bulk fetch/confirm/embed/save)
-- [ ] register lyrics blueprint in app factory
-- [ ] write tests for lyrics endpoints in `tests/test_lyrics.py`
-- [ ] run tests — must pass before next task
+- [x] create `src/routes/lyrics.py` — blueprint with all lyrics endpoints (single + bulk fetch/confirm/embed/save)
+- [x] register lyrics blueprint in app factory
+- [x] write tests for lyrics endpoints in `tests/test_lyrics.py`
+- [x] run tests — must pass before next task
 
 ### Task 10: Extract scan routes (scan blueprint)
 - [ ] create `src/routes/scan.py` — blueprint with rescan and status endpoints
