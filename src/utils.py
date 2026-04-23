@@ -163,7 +163,7 @@ def _resize_image(src_path, max_size, quality=95):
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
 
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg", dir="/tmp")
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
         img.save(tmp, format="JPEG", quality=quality, optimize=True)
         tmp.close()
     return tmp.name

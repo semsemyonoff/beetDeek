@@ -182,7 +182,7 @@ def upload_cover(album_id):
     tmp = None
     lib = None
     try:
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir="/tmp")
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
         f.save(tmp)
         tmp.close()
 

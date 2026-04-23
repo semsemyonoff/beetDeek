@@ -255,16 +255,16 @@ def items_identify():
         "error": None,
     }
     with state.identify_lock:
-        # Close _lib for any previously completed items tasks that were never confirmed.
-        # Items tasks are UUID-keyed so old done tasks accumulate; clean them up here
-        # to avoid leaking open SQLite connections.
+        # Remove any previously completed items tasks; close open _lib handles to
+        # avoid leaking SQLite connections. Items tasks are UUID-keyed so they
+        # accumulate without cleanup.
         stale_keys = [
             k
             for k, v in state.identify_tasks.items()
-            if k.startswith("items_") and v.get("status") in ("done", "error") and v.get("_lib") is not None
+            if k.startswith("items_") and v.get("status") in ("done", "error")
         ]
         for k in stale_keys:
-            old_lib = state.identify_tasks[k].pop("_lib", None)
+            old_lib = state.identify_tasks.pop(k).get("_lib")
             if old_lib is not None:
                 try:
                     old_lib._close()
