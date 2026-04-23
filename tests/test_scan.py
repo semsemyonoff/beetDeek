@@ -1,4 +1,5 @@
 """Tests for scan blueprint routes."""
+
 import src.state as state
 from src.routes.scan import _compute_scan_diff, _take_snapshot
 from tests.conftest import insert_album, insert_item
@@ -107,9 +108,7 @@ class TestRescan:
     def test_starts_rescan_full_mode(self, client, mocker):
         mock_proc = mocker.MagicMock()
         mock_proc.poll.return_value = None
-        popen_mock = mocker.patch(
-            "src.routes.scan.subprocess.Popen", return_value=mock_proc
-        )
+        popen_mock = mocker.patch("src.routes.scan.subprocess.Popen", return_value=mock_proc)
         mocker.patch("src.routes.scan._take_snapshot", return_value={})
 
         resp = client.post("/api/rescan?mode=full")
@@ -123,9 +122,7 @@ class TestRescan:
     def test_quick_mode_uses_incremental_flag(self, client, mocker):
         mock_proc = mocker.MagicMock()
         mock_proc.poll.return_value = None
-        popen_mock = mocker.patch(
-            "src.routes.scan.subprocess.Popen", return_value=mock_proc
-        )
+        popen_mock = mocker.patch("src.routes.scan.subprocess.Popen", return_value=mock_proc)
         mocker.patch("src.routes.scan._take_snapshot", return_value={})
 
         client.post("/api/rescan?mode=quick")

@@ -1,4 +1,5 @@
 """Tests for cover art blueprint routes."""
+
 import io
 
 from src import state
@@ -21,9 +22,7 @@ class TestAlbumCover:
         assert resp.status_code == 404
 
     def test_returns_404_when_artpath_points_to_missing_file(self, client, db_path):
-        album_id = insert_album(
-            db_path, album="Bad Artpath", artpath=b"/nonexistent/cover.jpg"
-        )
+        album_id = insert_album(db_path, album="Bad Artpath", artpath=b"/nonexistent/cover.jpg")
         insert_item(db_path, album_id, path=b"/nonexistent/path/track.mp3")
         resp = client.get(f"/api/album/{album_id}/cover")
         assert resp.status_code == 404
@@ -31,9 +30,7 @@ class TestAlbumCover:
     def test_serves_file_from_artpath(self, client, db_path, tmp_path):
         img_file = tmp_path / "cover.jpg"
         img_file.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 100)  # minimal JPEG header
-        album_id = insert_album(
-            db_path, album="Has Artpath", artpath=str(img_file).encode()
-        )
+        album_id = insert_album(db_path, album="Has Artpath", artpath=str(img_file).encode())
         resp = client.get(f"/api/album/{album_id}/cover")
         assert resp.status_code == 200
 
@@ -72,9 +69,7 @@ class TestCoverPreview:
         assert resp.status_code == 404
 
     def test_returns_404_when_file_does_not_exist(self, client):
-        state.identify_tasks["cover_43"] = {
-            "candidate_path": "/nonexistent/preview.jpg"
-        }
+        state.identify_tasks["cover_43"] = {"candidate_path": "/nonexistent/preview.jpg"}
         resp = client.get("/api/album/43/cover/preview")
         assert resp.status_code == 404
 
@@ -108,9 +103,7 @@ class TestConfirmCover:
         assert resp.status_code == 400
         assert resp.get_json()["error"] == "No cover art to confirm"
 
-    def test_task_popped_from_state_even_on_missing_album(
-        self, client, db_path, tmp_path
-    ):
+    def test_task_popped_from_state_even_on_missing_album(self, client, db_path, tmp_path):
         img_file = tmp_path / "cand.jpg"
         img_file.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 100)
         state.identify_tasks["cover_9999"] = {"candidate_path": str(img_file)}
@@ -124,9 +117,7 @@ class TestConfirmCover:
     def test_returns_404_when_candidate_file_missing(self, client, db_path, mocker):
         album_id = insert_album(db_path, album="Confirm Album")
         insert_item(db_path, album_id, path=b"/music/album/track.mp3")
-        state.identify_tasks[f"cover_{album_id}"] = {
-            "candidate_path": "/nonexistent/candidate.jpg"
-        }
+        state.identify_tasks[f"cover_{album_id}"] = {"candidate_path": "/nonexistent/candidate.jpg"}
         # Mock _init_beets to avoid beets dependency in test
         mock_album = mocker.MagicMock()
         mock_lib = mocker.MagicMock()
@@ -141,9 +132,7 @@ class TestConfirmCover:
         img_file.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 100)
         album_id = insert_album(db_path, album="Save Album")
         insert_item(db_path, album_id, path=b"/music/album/track.mp3")
-        state.identify_tasks[f"cover_{album_id}"] = {
-            "candidate_path": str(img_file)
-        }
+        state.identify_tasks[f"cover_{album_id}"] = {"candidate_path": str(img_file)}
         mock_album = mocker.MagicMock()
         mock_lib = mocker.MagicMock()
         mock_lib.get_album.return_value = mock_album

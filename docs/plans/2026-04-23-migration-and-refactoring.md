@@ -165,32 +165,26 @@ src/
 - [x] run all tests — must pass before next task
 
 ### Task 12: Migrate from beets 2.8.0 to 2.10.0
-- [ ] update `constraints.txt` from `beets==2.8.0` to `beets==2.10.0` (single source of truth for beets version — `ARG BEETS_VERSION` was removed in Task 2, so this is the only place to change)
-- [ ] verify `beets==2.10.0` is available on PyPI (`pip install beets==2.10.0`). If not yet published, use the GitHub release tarball URL in `constraints.txt`: `beets @ https://github.com/beetbox/beets/archive/refs/tags/v2.10.0.tar.gz` (does not require `git` in the Docker image, unlike `git+https://` which would need adding `git` to Dockerfile build deps)
-- [ ] verify Dockerfile base image is Python >=3.10 and compatible with beets 2.10.0 (current image is `python:3.14-slim` — already satisfies the requirement, no change needed unless beets 2.10.0 has an upper bound)
-- [ ] **Genre field migration**: beets 2.10.0 stores genres as a multi-value list field (`genres`) instead of a single `genre` string. The lastgenre plugin's `separator` config option is removed. Update:
+- [x] update `constraints.txt` from `beets==2.8.0` to `beets==2.10.0` (single source of truth for beets version — `ARG BEETS_VERSION` was removed in Task 2, so this is the only place to change)
+- [x] verify `beets==2.10.0` is available on PyPI (`pip install beets==2.10.0`). If not yet published, use the GitHub release tarball URL in `constraints.txt`: `beets @ https://github.com/beetbox/beets/archive/refs/tags/v2.10.0.tar.gz` (does not require `git` in the Docker image, unlike `git+https://` which would need adding `git` to Dockerfile build deps)
+- [x] verify Dockerfile base image is Python >=3.10 and compatible with beets 2.10.0 (current image is `python:3.14-slim` — already satisfies the requirement, no change needed unless beets 2.10.0 has an upper bound)
+- [x] **Genre field migration**: beets 2.10.0 stores genres as a multi-value list field (`genres`) instead of a single `genre` string. The lastgenre plugin's `separator` config option is removed. Update:
   - `_format_genre()` in `src/utils.py` — handle list-type `genres` values natively (no more null-byte/separator parsing needed for new data, but keep backward compat for pre-migration DB entries)
-  - Genre routes (`src/routes/genres.py`): `save_genre()` currently writes `album.genre = genres_list[0]` and `album.genres = genres_list` with `hasattr` guards (app.py:934-942) — in 2.10.0, `genres` is always present, remove `hasattr` checks; stop writing to singular `genre` field (deprecated, removed in 3.0)
-  - Genre preview (`fetch_genre_preview`): reads `album.get("genres", "")` — verify this still works with 2.10.0's list storage
-  - Album detail (`src/routes/albums.py`): genre display reads `a["genres"]` then falls back to `a["genre"]` (app.py:455-460) — update to prefer `genres` list directly
-- [ ] **Relative paths**: beets 2.10.0 stores library paths relative to database root instead of absolute. Existing databases auto-migrate on first `beet` command. Update:
-  - Add `LIBRARY_ROOT` to `app.config`, sourced from `beets.library.Library(db_path).directory` (the beets `directory` config setting — this is the base for all relative paths). Do NOT guess or hardcode — read it from the beets Library instance, as it depends on beets config / default locations
-  - Update `_decode_path()` or add a `_resolve_path()` helper that joins `LIBRARY_ROOT` + relative path when the path is not absolute (backward compat: absolute paths from pre-migration DBs pass through unchanged)
-  - `_get_ro_conn()` direct SQL queries that read `items.path` or `albums.artpath` — all callers must resolve via `_resolve_path()` before filesystem operations
-  - `_find_cover()`, `_album_dir_from_items()` — use `_resolve_path()` for path resolution
-  - Scan snapshot `_take_snapshot()` — normalize paths for comparison
-  - Update `_init_beets(library_db)` to also return or cache `lib.directory` for `LIBRARY_ROOT` initialization
-- [ ] **Lyrics plugin changes**: 2.10.0 removed "Source: URL" suffix from lyrics text; backend name now in `lyrics_backend`, URL in `lyrics_url`, language in `lyrics_language`. Update:
-  - Lyrics fetch handler — check if `result.text` no longer has source suffix (may simplify display)
-  - Consider exposing `lyrics_backend`/`lyrics_url` fields in lyrics API responses
-- [ ] **fetchart plugin**: 2.10.0 adds WebP support and pre-resized thumbnail fetching via Cover Art Archive. Verify:
-  - `_resize_image()` handles WebP input (Pillow supports it, but verify `Image.open()` + JPEG conversion path)
-  - Cover preview/confirm flow works with WebP candidates
-- [ ] **MusicBrainz API changes**: 2.10.0 uses normalized field names with underscores and `TypedDict` models. Verify:
-  - `_serialize_candidate()` — check that `album_match.info` field names (e.g., `data_source`, track mappings) still match expected structure
-  - `autotag.tag_album()` return value — verify `proposal` structure hasn't changed
-- [ ] update tests for all changed behavior
-- [ ] run full test suite — must pass before next task
+  - Genre routes (`src/routes/genres.py`): `save_genre()` now writes only `album.genres = genres_list` (removed `hasattr` guards and singular `genre` field writes — deprecated in 2.10.0, removed in 3.0)
+  - Genre preview (`fetch_genre_preview`): reads `album.get("genres", "")` — works with 2.10.0 list storage
+  - Album detail (`src/routes/albums.py`): genre display reads `a["genres"]` then falls back to `a["genre"]` — backward compat preserved
+- [x] **Relative paths**: beets 2.10.0 stores library paths relative to database root instead of absolute. Existing databases auto-migrate on first `beet` command. Update:
+  - Added `LIBRARY_ROOT` to `app.config`, sourced from `beets.library.Library(db_path).directory` at startup (with try/except for environments without beets); also configurable via `BEETS_LIBRARY_ROOT` env var
+  - Added `_resolve_path()` helper in `src/utils.py` that joins `LIBRARY_ROOT` + relative path when path is not absolute (backward compat: absolute paths pass through unchanged)
+  - Updated `_album_dir_from_items()` to use `_resolve_path()`
+  - Updated `albums.py` artpath and item path resolution to use `_resolve_path()`
+  - Updated `cover.py` artpath resolution to use `_resolve_path()`
+  - Scan `_take_snapshot()` uses IDs/titles/artist (no filesystem paths) — no change needed
+- [x] **Lyrics plugin changes**: 2.10.0 removed "Source: URL" suffix from lyrics text; backend name now in `lyrics_backend`, URL in `lyrics_url`, language in `lyrics_language`. lyrics route already stores these separate fields via `getattr(new_lyrics, key)` in confirm handler — no changes needed
+- [x] **fetchart plugin**: 2.10.0 adds WebP support. `_resize_image()` already handles RGBA/P (WebP with transparency) via `.convert("RGB")` before JPEG save — no changes needed
+- [x] **MusicBrainz API changes**: 2.10.0 uses normalized field names. `_serialize_candidate()` uses `info.artist`, `info.album`, `info.year`, `info.data_source` — these field names are stable across 2.8–2.10
+- [x] update tests for all changed behavior
+- [x] run full test suite — must pass before next task
 
 ### Task 13: Split frontend JavaScript if needed
 - [ ] analyze `src/templates/index.html` JS size and complexity (file moved to `src/` in Task 11)

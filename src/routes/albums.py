@@ -1,4 +1,5 @@
 """Album and track-tag routes."""
+
 import os
 import sqlite3
 
@@ -10,6 +11,7 @@ from src.utils import (
     _find_cover,
     _format_genre,
     _get_ro_conn,
+    _resolve_path,
 )
 
 bp = Blueprint("albums", __name__)
@@ -64,17 +66,15 @@ def album_detail(album_id):
         ).fetchall()
 
         album_dir = _album_dir_from_items(conn, album_id)
-        artpath = _decode_path(a["artpath"]) if a["artpath"] else None
-        has_cover = bool(artpath and os.path.isfile(artpath)) or bool(
-            _find_cover(album_dir)
-        )
+        artpath = _resolve_path(a["artpath"]) if a["artpath"] else None
+        has_cover = bool(artpath and os.path.isfile(artpath)) or bool(_find_cover(album_dir))
         conn.close()
     except sqlite3.OperationalError as e:
         return jsonify({"error": str(e)}), 500
 
     tracks = []
     for it in items:
-        item_path = _decode_path(it["path"]) if it["path"] else None
+        item_path = _resolve_path(it["path"]) if it["path"] else None
         tracks.append(
             {
                 "id": it["id"],

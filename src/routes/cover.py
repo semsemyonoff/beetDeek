@@ -1,4 +1,5 @@
 """Cover art routes blueprint."""
+
 import os
 import sqlite3
 
@@ -11,6 +12,7 @@ from src.utils import (
     _find_cover,
     _get_ro_conn,
     _init_beets,
+    _resolve_path,
     _save_cover_to_album,
     log,
 )
@@ -22,15 +24,13 @@ bp = Blueprint("cover", __name__)
 def album_cover(album_id):
     try:
         conn = _get_ro_conn()
-        a = conn.execute(
-            "SELECT artpath FROM albums WHERE id = ?", (album_id,)
-        ).fetchone()
+        a = conn.execute("SELECT artpath FROM albums WHERE id = ?", (album_id,)).fetchone()
         album_dir = _album_dir_from_items(conn, album_id)
         conn.close()
     except sqlite3.OperationalError:
         return "", 404
 
-    artpath = _decode_path(a["artpath"]) if a and a["artpath"] else None
+    artpath = _resolve_path(a["artpath"]) if a and a["artpath"] else None
     if artpath and os.path.isfile(artpath):
         return send_file(artpath)
 

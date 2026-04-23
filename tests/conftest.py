@@ -1,4 +1,5 @@
 """Shared test fixtures for beetDeek tests."""
+
 import sqlite3
 
 import pytest
@@ -170,6 +171,8 @@ def app(db_path):
         test_config={
             "LIBRARY_DB": db_path,
             "IMPORT_DIR": "/tmp/music_import",
+            # Empty string: test paths are absolute; no library root resolution needed
+            "LIBRARY_ROOT": "",
             "TESTING": True,
         }
     )

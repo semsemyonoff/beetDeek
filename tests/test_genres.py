@@ -1,5 +1,5 @@
 """Tests for genres blueprint routes."""
-from tests.conftest import insert_album, insert_item
+
 
 
 # ---------------------------------------------------------------------------
@@ -30,9 +30,7 @@ class TestFetchGenrePreview:
         mock_album = mocker.MagicMock()
         mock_album.albumartist = "Artist"
         mock_album.album = "Album"
-        mock_album.get.side_effect = lambda key, default="": {
-            "genres": "Rock"
-        }.get(key, default)
+        mock_album.get.side_effect = lambda key, default="": {"genres": "Rock"}.get(key, default)
         mock_lib = mocker.MagicMock()
         mock_lib.get_album.return_value = mock_album
         mocker.patch("src.routes.genres._init_beets", return_value=mock_lib)
@@ -42,9 +40,9 @@ class TestFetchGenrePreview:
 
         def side_effect_process(album, write):
             # Simulate plugin writing a new genre to album
-            mock_album.get.side_effect = lambda key, default="": {
-                "genres": "Electronic"
-            }.get(key, default)
+            mock_album.get.side_effect = lambda key, default="": {"genres": "Electronic"}.get(
+                key, default
+            )
 
         mock_plugin._process.side_effect = side_effect_process
         mocker.patch("beets.plugins.find_plugins", return_value=[mock_plugin])
@@ -198,31 +196,28 @@ class TestSaveGenre:
         assert data["status"] == "ok"
         assert data["genre"] == "Jazz"
 
-        assert mock_album.genre == "Jazz"
+        # beets 2.10.0: write only to the native list field genres
+        assert mock_album.genres == ["Jazz"]
         assert mock_album.store.called
-        assert mock_item.genre == "Jazz"
+        assert mock_item.genres == ["Jazz"]
         assert mock_item.store.called
         assert mock_item.try_write.called
 
     def test_saves_multiple_genres_as_list(self, client, mocker):
         mock_item = mocker.MagicMock()
         mock_album = mocker.MagicMock()
-        # Ensure hasattr(album, "genres") returns True
-        type(mock_album).genres = mocker.PropertyMock(return_value=[])
         mock_album.items.return_value = [mock_item]
-        type(mock_item).genres = mocker.PropertyMock(return_value=[])
         mock_lib = mocker.MagicMock()
         mock_lib.get_album.return_value = mock_album
         mocker.patch("src.routes.genres._init_beets", return_value=mock_lib)
 
-        resp = client.post(
-            "/api/album/1/genre/save", json={"genre": "Rock, Pop, Electronic"}
-        )
+        resp = client.post("/api/album/1/genre/save", json={"genre": "Rock, Pop, Electronic"})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["genre"] == "Rock, Pop, Electronic"
-        # genre (singular) should be set to the first value
-        assert mock_album.genre == "Rock"
+        # beets 2.10.0: write genres list directly, not singular genre field
+        assert mock_album.genres == ["Rock", "Pop", "Electronic"]
+        assert mock_item.genres == ["Rock", "Pop", "Electronic"]
 
     def test_strips_whitespace_from_genre(self, client, mocker):
         mock_album = mocker.MagicMock()
@@ -231,8 +226,6 @@ class TestSaveGenre:
         mock_lib.get_album.return_value = mock_album
         mocker.patch("src.routes.genres._init_beets", return_value=mock_lib)
 
-        resp = client.post(
-            "/api/album/1/genre/save", json={"genre": "  Rock  "}
-        )
+        resp = client.post("/api/album/1/genre/save", json={"genre": "  Rock  "})
         assert resp.status_code == 200
         assert resp.get_json()["genre"] == "Rock"

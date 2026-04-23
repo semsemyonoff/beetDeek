@@ -4,6 +4,7 @@ Endpoints:
     POST  /api/rescan         — start library rescan
     GET   /api/rescan/status  — poll rescan status
 """
+
 import subprocess
 import sys
 

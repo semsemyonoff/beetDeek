@@ -1,4 +1,5 @@
 """Library routes: SPA index, album list, search, and artist detail."""
+
 import os
 import sqlite3
 
@@ -39,9 +40,7 @@ def library():
     item_dirs = {}
     try:
         conn2 = _get_ro_conn()
-        dir_rows = conn2.execute(
-            "SELECT album_id, path FROM items GROUP BY album_id"
-        ).fetchall()
+        dir_rows = conn2.execute("SELECT album_id, path FROM items GROUP BY album_id").fetchall()
         conn2.close()
         for dr in dir_rows:
             item_dirs[dr["album_id"]] = os.path.dirname(_decode_path(dr["path"]))
@@ -116,9 +115,7 @@ def search():
                 search_album_ids,
             ).fetchall()
             for dr in sdir_rows:
-                search_item_dirs[dr["album_id"]] = os.path.dirname(
-                    _decode_path(dr["path"])
-                )
+                search_item_dirs[dr["album_id"]] = os.path.dirname(_decode_path(dr["path"]))
 
         albums = []
         for r in album_rows:

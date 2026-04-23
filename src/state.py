@@ -3,6 +3,7 @@
 These module-level globals are shared across all request threads.
 The application requires a single gunicorn worker to keep this state coherent.
 """
+
 import threading
 
 # Identification + cover preview state

@@ -1,4 +1,5 @@
 """Shared helpers and constants for beetDeek routes."""
+
 import logging
 import os
 import re
@@ -66,6 +67,22 @@ def _decode_path(val):
     if isinstance(val, bytes):
         return val.decode("utf-8", errors="replace")
     return val or ""
+
+
+def _resolve_path(path):
+    """Decode path bytes and resolve relative paths against LIBRARY_ROOT.
+
+    Beets 2.10.0 stores item/artpath values relative to the library root
+    directory in the database. Absolute paths (pre-migration DBs) pass through
+    unchanged for backward compatibility.
+    """
+    p = _decode_path(path)
+    if not p or os.path.isabs(p):
+        return p
+    library_root = current_app.config.get("LIBRARY_ROOT", "")
+    if library_root:
+        return os.path.join(library_root, p)
+    return p
 
 
 # ---------------------------------------------------------------------------
@@ -147,9 +164,7 @@ def _save_cover_to_album(album, src_path):
     if os.path.exists(hires_path):
         os.unlink(hires_path)
 
-    art.embed_album(
-        _beets_log, album, maxwidth=COVER_EMBED_MAX, quality=COVER_EMBED_QUALITY
-    )
+    art.embed_album(_beets_log, album, maxwidth=COVER_EMBED_MAX, quality=COVER_EMBED_QUALITY)
 
 
 # ---------------------------------------------------------------------------
@@ -158,11 +173,9 @@ def _save_cover_to_album(album, src_path):
 
 
 def _album_dir_from_items(conn, album_id):
-    row = conn.execute(
-        "SELECT path FROM items WHERE album_id = ? LIMIT 1", (album_id,)
-    ).fetchone()
+    row = conn.execute("SELECT path FROM items WHERE album_id = ? LIMIT 1", (album_id,)).fetchone()
     if row:
-        return os.path.dirname(_decode_path(row["path"]))
+        return os.path.dirname(_resolve_path(row["path"]))
     return None
 
 

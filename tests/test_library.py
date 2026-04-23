@@ -1,4 +1,5 @@
 """Tests for library blueprint routes: /, /api/library, /api/search, /api/artist."""
+
 from tests.conftest import insert_album, insert_item
 
 # ---------------------------------------------------------------------------

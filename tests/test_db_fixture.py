@@ -1,4 +1,5 @@
 """Smoke tests for the DB fixtures defined in conftest.py."""
+
 import sqlite3
 
 from tests.conftest import insert_album, insert_item
@@ -10,9 +11,7 @@ def test_db_fixture_creates_schema(db_path):
     try:
         tables = {
             row[0]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
     finally:
         conn.close()

@@ -1,8 +1,8 @@
 """Tests for albums blueprint routes: /api/album/<id>, /api/album/<id>/track/<id>/tags."""
+
 import sqlite3
 
 from tests.conftest import insert_album, insert_item
-
 
 # ---------------------------------------------------------------------------
 # GET /api/album/<id>
@@ -156,8 +156,7 @@ class TestAlbumDetail:
 
     def test_original_year_preferred_over_year(self, client, db_path):
         album_id = insert_album(
-            db_path, album="Reissue", albumartist="Artist J",
-            year=2005, original_year=1975
+            db_path, album="Reissue", albumartist="Artist J", year=2005, original_year=1975
         )
         resp = client.get(f"/api/album/{album_id}")
         assert resp.status_code == 200
@@ -227,10 +226,7 @@ class TestTrackTags:
 
     def test_skips_empty_and_zero_values(self, client, db_path):
         album_id = insert_album(db_path, album="Sparse Album", albumartist="Artist N")
-        item_id = insert_item(
-            db_path, album_id, title="Sparse Track",
-            bitrate=0, samplerate=0
-        )
+        item_id = insert_item(db_path, album_id, title="Sparse Track", bitrate=0, samplerate=0)
         resp = client.get(f"/api/album/{album_id}/track/{item_id}/tags")
         assert resp.status_code == 200
         tags = resp.get_json()

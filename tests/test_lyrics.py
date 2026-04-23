@@ -1,4 +1,5 @@
 """Tests for lyrics blueprint routes."""
+
 from src import state
 from tests.conftest import insert_album, insert_item  # noqa: F401
 
@@ -7,9 +8,16 @@ from tests.conftest import insert_album, insert_item  # noqa: F401
 # ---------------------------------------------------------------------------
 
 
-def _make_lyrics_obj(mocker, text="Some lyrics", full_text=None, synced=False,
-                     backend="genius", url=None, language=None,
-                     translation_language=None):
+def _make_lyrics_obj(
+    mocker,
+    text="Some lyrics",
+    full_text=None,
+    synced=False,
+    backend="genius",
+    url=None,
+    language=None,
+    translation_language=None,
+):
     """Create a mock lyrics result object."""
     obj = mocker.MagicMock()
     obj.text = text
@@ -36,8 +44,7 @@ class TestTrackLyrics:
 
     def test_returns_no_lyrics_when_empty(self, client, db_path):
         album_id = insert_album(db_path)
-        item_id = insert_item(db_path, album_id, lyrics=None,
-                              path=b"/music/test/track.mp3")
+        item_id = insert_item(db_path, album_id, lyrics=None, path=b"/music/test/track.mp3")
         resp = client.get(f"/api/album/{album_id}/track/{item_id}/lyrics")
         assert resp.status_code == 200
         data = resp.get_json()
@@ -47,8 +54,9 @@ class TestTrackLyrics:
 
     def test_returns_embedded_lyrics(self, client, db_path):
         album_id = insert_album(db_path)
-        item_id = insert_item(db_path, album_id, lyrics="Hello world",
-                              path=b"/music/test/track.mp3")
+        item_id = insert_item(
+            db_path, album_id, lyrics="Hello world", path=b"/music/test/track.mp3"
+        )
         resp = client.get(f"/api/album/{album_id}/track/{item_id}/lyrics")
         assert resp.status_code == 200
         data = resp.get_json()
@@ -56,14 +64,12 @@ class TestTrackLyrics:
         assert data["lyrics"] == "Hello world"
         assert data["source"] == "embedded"
 
-    def test_returns_lrc_file_when_no_embedded_lyrics(self, client, db_path, tmp_path,
-                                                       mocker):
+    def test_returns_lrc_file_when_no_embedded_lyrics(self, client, db_path, tmp_path, mocker):
         album_id = insert_album(db_path)
         lrc_file = tmp_path / "track.lrc"
         lrc_file.write_text("[00:00.00]Synced lyrics", encoding="utf-8")
         audio_path = str(tmp_path / "track.mp3")
-        item_id = insert_item(db_path, album_id, lyrics=None,
-                              path=audio_path.encode())
+        item_id = insert_item(db_path, album_id, lyrics=None, path=audio_path.encode())
         resp = client.get(f"/api/album/{album_id}/track/{item_id}/lyrics")
         assert resp.status_code == 200
         data = resp.get_json()
@@ -76,8 +82,7 @@ class TestTrackLyrics:
         lrc_file = tmp_path / "track.lrc"
         lrc_file.write_text("[00:00.00]Synced", encoding="utf-8")
         audio_path = str(tmp_path / "track.mp3")
-        item_id = insert_item(db_path, album_id, lyrics="Embedded lyrics",
-                              path=audio_path.encode())
+        item_id = insert_item(db_path, album_id, lyrics="Embedded lyrics", path=audio_path.encode())
         resp = client.get(f"/api/album/{album_id}/track/{item_id}/lyrics")
         assert resp.status_code == 200
         data = resp.get_json()
@@ -379,8 +384,7 @@ class TestSaveTrackLyrics:
         mock_lib = mocker.MagicMock()
         mock_lib.get_item.return_value = None
         mocker.patch("src.routes.lyrics._init_beets", return_value=mock_lib)
-        resp = client.post("/api/album/1/track/9999/lyrics/save",
-                           json={"lyrics": "text"})
+        resp = client.post("/api/album/1/track/9999/lyrics/save", json={"lyrics": "text"})
         assert resp.status_code == 404
 
     def test_saves_lyrics_to_item(self, client, mocker):
@@ -391,8 +395,7 @@ class TestSaveTrackLyrics:
         mock_lib.get_item.return_value = mock_item
         mocker.patch("src.routes.lyrics._init_beets", return_value=mock_lib)
 
-        resp = client.post("/api/album/1/track/1/lyrics/save",
-                           json={"lyrics": "My lyrics"})
+        resp = client.post("/api/album/1/track/1/lyrics/save", json={"lyrics": "My lyrics"})
         assert resp.status_code == 200
         assert resp.get_json()["status"] == "ok"
         assert mock_item.lyrics == "My lyrics"
@@ -423,8 +426,7 @@ class TestSaveTrackLyrics:
         mock_lib.get_item.return_value = mock_item
         mocker.patch("src.routes.lyrics._init_beets", return_value=mock_lib)
 
-        resp = client.post("/api/album/1/track/1/lyrics/save",
-                           json={"lyrics": "New lyrics"})
+        resp = client.post("/api/album/1/track/1/lyrics/save", json={"lyrics": "New lyrics"})
         assert resp.status_code == 200
         assert not lrc_file.exists()
 
@@ -565,8 +567,7 @@ class TestConfirmAlbumLyrics:
         mock_lib.get_item.side_effect = get_item
         mocker.patch("src.routes.lyrics._init_beets", return_value=mock_lib)
 
-        resp = client.post("/api/album/1/lyrics/confirm",
-                           json={"item_ids": [1, 2]})
+        resp = client.post("/api/album/1/lyrics/confirm", json={"item_ids": [1, 2]})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["status"] == "ok"
@@ -581,8 +582,7 @@ class TestConfirmAlbumLyrics:
         mock_lib = mocker.MagicMock()
         mocker.patch("src.routes.lyrics._init_beets", return_value=mock_lib)
 
-        resp = client.post("/api/album/1/lyrics/confirm",
-                           json={"item_ids": [1, 2]})
+        resp = client.post("/api/album/1/lyrics/confirm", json={"item_ids": [1, 2]})
         assert resp.status_code == 200
         assert resp.get_json()["written"] == 0
 

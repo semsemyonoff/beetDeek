@@ -1,4 +1,5 @@
 """Genre routes blueprint."""
+
 from flask import Blueprint, current_app, jsonify, request
 
 from src.utils import _format_genre, _init_beets, log
@@ -44,9 +45,7 @@ def fetch_genre_preview(album_id):
             lastgenre.config["pretend"].set(False)
 
         new_genre = album.get("genres", "") or ""
-        log.info(
-            "Genre preview for album_id=%d: %r -> %r", album_id, old_genre, new_genre
-        )
+        log.info("Genre preview for album_id=%d: %r -> %r", album_id, old_genre, new_genre)
 
         # Restore old value (we only previewed)
         album.genres = old_genre
@@ -122,14 +121,12 @@ def save_genre(album_id):
             return jsonify({"error": "Album not found"}), 404
 
         genres_list = [g.strip() for g in genre.split(",") if g.strip()]
-        album.genre = genres_list[0] if genres_list else genre
-        if hasattr(album, "genres"):
-            album.genres = genres_list
+        # beets 2.10.0: genres is the native list field; genre (singular) is
+        # deprecated and removed in 3.0. Write only to genres.
+        album.genres = genres_list
         album.store()
         for item in album.items():
-            item.genre = genres_list[0] if genres_list else genre
-            if hasattr(item, "genres"):
-                item.genres = genres_list
+            item.genres = genres_list
             item.store()
             item.try_write()
 

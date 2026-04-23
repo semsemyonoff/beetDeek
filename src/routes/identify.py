@@ -6,6 +6,7 @@ Endpoints:
     POST   /api/album/<id>/apply            — preview diff for a candidate
     POST   /api/album/<id>/confirm          — write chosen candidate to files/DB
 """
+
 import sqlite3
 import threading
 import uuid
@@ -133,9 +134,7 @@ def _run_identify(task_id, album_id, search_artist, search_album, search_id, lib
                 c["data_source"],
             )
 
-        log.info(
-            "Identify done for album_id=%d: %d candidates", album_id, len(candidates)
-        )
+        log.info("Identify done for album_id=%d: %d candidates", album_id, len(candidates))
         task["candidates"] = candidates
         task["status"] = "done"
 

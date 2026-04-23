@@ -1,4 +1,5 @@
 """Tests for src/utils.py shared helpers."""
+
 import sqlite3
 
 import pytest
@@ -10,6 +11,7 @@ from src.utils import (
     _find_cover,
     _format_genre,
     _remove_cover_files,
+    _resolve_path,
 )
 
 # ---------------------------------------------------------------------------
@@ -77,6 +79,75 @@ def test_format_genre_bytes():
 
 def test_format_genre_strips_whitespace():
     assert _format_genre("  Rock  \x00  Pop  ") == "Rock, Pop"
+
+
+# ---------------------------------------------------------------------------
+# _resolve_path (requires app context for current_app.config)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def _app_for_resolve(tmp_path):
+    db = tmp_path / "library.db"
+    db.write_bytes(b"")
+    return create_app(test_config={"LIBRARY_DB": str(db), "LIBRARY_ROOT": "", "TESTING": True})
+
+
+def test_resolve_path_absolute_passthrough(_app_for_resolve):
+    with _app_for_resolve.app_context():
+        assert _resolve_path(b"/music/track.mp3") == "/music/track.mp3"
+
+
+def test_resolve_path_str_absolute_passthrough(_app_for_resolve):
+    with _app_for_resolve.app_context():
+        assert _resolve_path("/data/library/track.mp3") == "/data/library/track.mp3"
+
+
+def test_resolve_path_none_returns_empty(_app_for_resolve):
+    with _app_for_resolve.app_context():
+        assert _resolve_path(None) == ""
+
+
+def test_resolve_path_empty_returns_empty(_app_for_resolve):
+    with _app_for_resolve.app_context():
+        assert _resolve_path("") == ""
+
+
+def test_resolve_path_relative_without_library_root(_app_for_resolve):
+    """Relative path with no LIBRARY_ROOT passes through unchanged."""
+    with _app_for_resolve.app_context():
+        assert _resolve_path("artist/album/track.mp3") == "artist/album/track.mp3"
+
+
+def test_resolve_path_relative_with_library_root(tmp_path):
+    """Relative path joined to LIBRARY_ROOT when set."""
+    db = tmp_path / "library.db"
+    db.write_bytes(b"")
+    app = create_app(
+        test_config={
+            "LIBRARY_DB": str(db),
+            "LIBRARY_ROOT": "/data/music",
+            "TESTING": True,
+        }
+    )
+    with app.app_context():
+        result = _resolve_path("artist/album/track.mp3")
+    assert result == "/data/music/artist/album/track.mp3"
+
+
+def test_resolve_path_bytes_relative_with_library_root(tmp_path):
+    db = tmp_path / "library.db"
+    db.write_bytes(b"")
+    app = create_app(
+        test_config={
+            "LIBRARY_DB": str(db),
+            "LIBRARY_ROOT": "/data/music",
+            "TESTING": True,
+        }
+    )
+    with app.app_context():
+        result = _resolve_path(b"artist/album/track.mp3")
+    assert result == "/data/music/artist/album/track.mp3"
 
 
 # ---------------------------------------------------------------------------
@@ -188,7 +259,9 @@ def _app_with_db(tmp_path):
     )
     conn.commit()
     conn.close()
-    return create_app(test_config={"LIBRARY_DB": str(db), "TESTING": True}), str(db)
+    return create_app(
+        test_config={"LIBRARY_DB": str(db), "LIBRARY_ROOT": "", "TESTING": True}
+    ), str(db)
 
 
 def test_album_dir_from_items_returns_dir(_app_with_db, tmp_path):
@@ -198,9 +271,7 @@ def test_album_dir_from_items_returns_dir(_app_with_db, tmp_path):
     track_path = str(music_dir / "track.mp3").encode()
 
     conn = sqlite3.connect(db_path)
-    conn.execute(
-        "INSERT INTO albums (id, album, albumartist) VALUES (1, 'A', 'B')"
-    )
+    conn.execute("INSERT INTO albums (id, album, albumartist) VALUES (1, 'A', 'B')")
     conn.execute(
         "INSERT INTO items (id, path, album_id, title) VALUES (1, ?, 1, 'T')",
         (track_path,),
@@ -236,6 +307,7 @@ def test_create_app_default_config():
     app = create_app()
     assert app.config["LIBRARY_DB"] == "/data/beets/library.db"
     assert app.config["IMPORT_DIR"] == "/music"
+    assert "LIBRARY_ROOT" in app.config
 
 
 def test_create_app_test_config(tmp_path):

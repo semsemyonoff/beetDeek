@@ -1,4 +1,5 @@
 """Lyrics routes blueprint."""
+
 import os
 
 from flask import Blueprint, current_app, jsonify, request
@@ -74,9 +75,7 @@ def track_lyrics(album_id, item_id):
         return jsonify({"has_lyrics": False, "lyrics": "", "source": None})
 
 
-@bp.route(
-    "/api/album/<int:album_id>/track/<int:item_id>/lyrics/fetch", methods=["POST"]
-)
+@bp.route("/api/album/<int:album_id>/track/<int:item_id>/lyrics/fetch", methods=["POST"])
 def fetch_track_lyrics(album_id, item_id):
     """Fetch lyrics for a single track from online sources (preview)."""
     try:
@@ -96,9 +95,7 @@ def fetch_track_lyrics(album_id, item_id):
         if not lyrics_plugin:
             return jsonify({"error": "lyrics plugin not loaded"}), 500
 
-        log.info(
-            "Fetching lyrics for item_id=%d: %s - %s", item_id, item.artist, item.title
-        )
+        log.info("Fetching lyrics for item_id=%d: %s - %s", item_id, item.artist, item.title)
 
         result = lyrics_plugin.find_lyrics(item)
 
@@ -117,13 +114,9 @@ def fetch_track_lyrics(album_id, item_id):
         lrc_path = _find_lrc_file(item_path)
         lrc_text = _read_lrc_file(lrc_path) if lrc_path else None
         current_lyrics = old_lyrics or lrc_text or ""
-        current_source = (
-            "embedded" if old_lyrics else ("lrc_file" if lrc_text else None)
-        )
+        current_source = "embedded" if old_lyrics else ("lrc_file" if lrc_text else None)
 
-        log.info(
-            "Lyrics found for item_id=%d from %s", item_id, result.backend or "unknown"
-        )
+        log.info("Lyrics found for item_id=%d from %s", item_id, result.backend or "unknown")
 
         lib._close()
         return jsonify(
@@ -143,9 +136,7 @@ def fetch_track_lyrics(album_id, item_id):
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route(
-    "/api/album/<int:album_id>/track/<int:item_id>/lyrics/confirm", methods=["POST"]
-)
+@bp.route("/api/album/<int:album_id>/track/<int:item_id>/lyrics/confirm", methods=["POST"])
 def confirm_track_lyrics(album_id, item_id):
     """Write fetched lyrics to a single track."""
     with state.identify_lock:
@@ -188,9 +179,7 @@ def confirm_track_lyrics(album_id, item_id):
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route(
-    "/api/album/<int:album_id>/track/<int:item_id>/lyrics/embed", methods=["POST"]
-)
+@bp.route("/api/album/<int:album_id>/track/<int:item_id>/lyrics/embed", methods=["POST"])
 def embed_lrc_lyrics(album_id, item_id):
     """Embed lyrics from external .lrc file into track and delete the .lrc."""
     try:
@@ -258,9 +247,7 @@ def embed_all_lrc(album_id):
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route(
-    "/api/album/<int:album_id>/track/<int:item_id>/lyrics/save", methods=["POST"]
-)
+@bp.route("/api/album/<int:album_id>/track/<int:item_id>/lyrics/save", methods=["POST"])
 def save_track_lyrics(album_id, item_id):
     """Manually save edited lyrics to a track."""
     data = request.get_json(silent=True) or {}
@@ -329,9 +316,7 @@ def fetch_album_lyrics(album_id):
             lrc_path = _find_lrc_file(item_path)
             lrc_text = _read_lrc_file(lrc_path) if lrc_path else None
             current_lyrics = item.lyrics or lrc_text or ""
-            current_source = (
-                "embedded" if item.lyrics else ("lrc_file" if lrc_text else None)
-            )
+            current_source = "embedded" if item.lyrics else ("lrc_file" if lrc_text else None)
 
             found_lyrics = lyrics_plugin.find_lyrics(item)
 

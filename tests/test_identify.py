@@ -1,6 +1,6 @@
 """Tests for identify blueprint routes."""
+
 import src.state as state
-from tests.conftest import insert_album, insert_item
 
 
 def _reset_state():
