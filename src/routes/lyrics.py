@@ -186,7 +186,7 @@ def embed_lrc_lyrics(album_id, item_id):
 
         item.lyrics = lrc_text
         item.store()
-        item.try_write()
+        item.write()
 
         os.remove(lrc_path)
         log.info("Embedded .lrc and removed file for item_id=%d: %s", item_id, lrc_path)
@@ -223,7 +223,7 @@ def embed_all_lrc(album_id):
                 continue
             item.lyrics = lrc_text
             item.store()
-            item.try_write()
+            item.write()
             os.remove(lrc_path)
             embedded.append({"id": item.id, "title": item.title})
             log.info("Embedded .lrc for item_id=%d: %s", item.id, lrc_path)

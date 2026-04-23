@@ -281,6 +281,7 @@ def confirm_match(album_id):
 
     album_match = matches[candidate_index]
 
+    lib = None
     lib = task.get("_lib") or _init_beets(current_app.config["LIBRARY_DB"])
     task.pop("_lib", None)
     try:
@@ -311,11 +312,12 @@ def confirm_match(album_id):
 
         log.info("Album %d tagged successfully", album_id)
 
-        task.pop("_matches", None)
         return jsonify({"status": "ok"})
 
     except Exception as e:
         log.exception("Confirm failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
     finally:
-        lib._close()
+        task.pop("_matches", None)
+        if lib is not None:
+            lib._close()

@@ -93,6 +93,8 @@ def rescan_status():
         result["added"] = added
         result["removed"] = removed
     with state.rescan_lock:
-        state.rescan_proc = None
-        state.rescan_snapshot = None
+        # Only clear if no new rescan was started between our two lock acquisitions.
+        if state.rescan_proc is proc:
+            state.rescan_proc = None
+            state.rescan_snapshot = None
     return jsonify(result)
