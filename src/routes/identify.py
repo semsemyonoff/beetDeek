@@ -288,11 +288,14 @@ def confirm_match(album_id):
     lib = None
     with state.identify_lock:
         task = state.identify_tasks.get(f"album_{album_id}")
-        if not task or task.get("status") != "done":
+        if not task or task.get("status") not in ("done",):
             return jsonify({"error": "No identification results"}), 400
         matches = task.get("_matches", [])
         if candidate_index < 0 or candidate_index >= len(matches):
             return jsonify({"error": "Invalid candidate index"}), 400
+        # Mark as confirming inside the lock so concurrent requests see a
+        # non-"done" status and are rejected instead of applying tags twice.
+        task["status"] = "confirming"
         lib = task.pop("_lib", None)
 
     album_match = matches[candidate_index]

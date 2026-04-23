@@ -83,7 +83,8 @@ def search():
     if not q:
         return jsonify({"artists": [], "albums": [], "tracks": []})
 
-    like = f"%{q.lower()}%"
+    escaped = q.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    like = f"%{escaped}%"
     try:
         conn = _get_ro_conn()
         try:
@@ -91,7 +92,7 @@ def search():
                 """
             SELECT DISTINCT albumartist
             FROM albums
-            WHERE ULOWER(albumartist) LIKE ?
+            WHERE ULOWER(albumartist) LIKE ? ESCAPE '\\'
             ORDER BY albumartist COLLATE NOCASE
             LIMIT 20
             """,
@@ -103,7 +104,7 @@ def search():
                 """
             SELECT a.id, a.album, a.albumartist, a.original_year, a.year, a.artpath
             FROM albums a
-            WHERE ULOWER(a.album) LIKE ?
+            WHERE ULOWER(a.album) LIKE ? ESCAPE '\\'
             ORDER BY a.albumartist COLLATE NOCASE, a.album COLLATE NOCASE
             LIMIT 30
             """,
@@ -143,7 +144,7 @@ def search():
                    a.album, a.albumartist
             FROM items i
             JOIN albums a ON a.id = i.album_id
-            WHERE ULOWER(i.title) LIKE ?
+            WHERE ULOWER(i.title) LIKE ? ESCAPE '\\'
             ORDER BY i.title COLLATE NOCASE, i.artist COLLATE NOCASE
             LIMIT 30
             """,

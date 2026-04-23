@@ -36,7 +36,7 @@ def fetch_genre_preview(album_id):
         if not lastgenre:
             return jsonify({"error": "lastgenre plugin not loaded"}), 500
 
-        old_genre = album.get("genres", "") or ""
+        old_genre = album.get("genres") or []
 
         log.info(
             "Fetching genre preview for album_id=%d: %s - %s",
@@ -109,7 +109,12 @@ def confirm_genre(album_id):
             album.album,
         )
 
-        lastgenre._process(album, write=True)
+        # Hold _genre_plugin_lock across the confirm call too: the pretend flag
+        # is a singleton on the plugin, and a concurrent preview request could
+        # set pretend=True before _process runs, causing confirm to silently
+        # skip writing the genre.
+        with _genre_plugin_lock:
+            lastgenre._process(album, write=True)
 
         new_genre = album.get("genres", "") or ""
         log.info("Genre written for album_id=%d: %s", album_id, new_genre)
@@ -144,12 +149,23 @@ def save_genre(album_id):
         # deprecated and removed in 3.0. Write only to genres.
         album.genres = genres_list
         album.store()
+        write_failures = []
         for item in album.items():
             item.genres = genres_list
             item.store()
-            item.try_write()
+            if not item.try_write():
+                log.warning("Failed to write genre tag for track %d: %s", item.track, item.title)
+                write_failures.append(item.id)
 
         log.info("Genre manually set for album_id=%d: %s", album_id, genre)
+        if write_failures:
+            return jsonify(
+                {
+                    "status": "partial",
+                    "genre": genre,
+                    "write_failures": write_failures,
+                }
+            )
         return jsonify({"status": "ok", "genre": genre})
 
     except Exception as e:
