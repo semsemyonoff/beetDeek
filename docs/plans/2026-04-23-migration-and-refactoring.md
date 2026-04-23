@@ -110,10 +110,10 @@ src/
 - [x] run tests — must pass before next task
 
 ### Task 4: Extract library routes (library blueprint)
-- [ ] create `src/routes/library.py` — blueprint with `GET /`, `GET /api/library`, `GET /api/search`, `GET /api/artist`
-- [ ] register library blueprint in app factory
-- [ ] write tests for library endpoints in `tests/test_library.py`
-- [ ] run tests — must pass before next task
+- [x] create `src/routes/library.py` — blueprint with `GET /`, `GET /api/library`, `GET /api/search`, `GET /api/artist`
+- [x] register library blueprint in app factory
+- [x] write tests for library endpoints in `tests/test_library.py`
+- [x] run tests — must pass before next task
 
 ### Task 5: Extract album and track routes (albums blueprint)
 - [ ] create `src/routes/albums.py` — blueprint with `GET /api/album/<id>`, `GET /api/album/<id>/track/<id>/tags`

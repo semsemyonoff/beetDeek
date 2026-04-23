@@ -79,17 +79,17 @@ CREATE TABLE IF NOT EXISTS items (
 );
 
 CREATE TABLE IF NOT EXISTS album_attributes (
-    id INTEGER REFERENCES albums(id),
+    entity_id INTEGER REFERENCES albums(id),
     key TEXT,
     value TEXT,
-    PRIMARY KEY (id, key)
+    PRIMARY KEY (entity_id, key)
 );
 
 CREATE TABLE IF NOT EXISTS item_attributes (
-    id INTEGER REFERENCES items(id),
+    entity_id INTEGER REFERENCES items(id),
     key TEXT,
     value TEXT,
-    PRIMARY KEY (id, key)
+    PRIMARY KEY (entity_id, key)
 );
 """
 

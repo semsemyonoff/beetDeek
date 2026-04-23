@@ -3,6 +3,9 @@ import os
 
 from flask import Flask
 
+# Root of the repo (one level up from this package).
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 def create_app(test_config=None):
     """Create and configure the Flask application.
@@ -10,7 +13,12 @@ def create_app(test_config=None):
     Args:
         test_config: Optional dict of config overrides (e.g. LIBRARY_DB for tests).
     """
-    app = Flask(__name__, static_folder="static", template_folder="templates")
+    # Until Task 11 moves static/templates into src/, use the repo-root copies.
+    app = Flask(
+        __name__,
+        static_folder=os.path.join(_REPO_ROOT, "static"),
+        template_folder=os.path.join(_REPO_ROOT, "templates"),
+    )
 
     app.config["LIBRARY_DB"] = os.environ.get(
         "BEETS_LIBRARY_DB", "/data/beets/library.db"
@@ -20,6 +28,8 @@ def create_app(test_config=None):
     if test_config:
         app.config.update(test_config)
 
-    # Blueprints are registered in subsequent tasks (4-10).
+    from .routes.library import bp as library_bp
+
+    app.register_blueprint(library_bp)
 
     return app
