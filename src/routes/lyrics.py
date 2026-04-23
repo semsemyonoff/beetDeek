@@ -155,8 +155,11 @@ def confirm_track_lyrics(album_id, item_id):
             item_path = _resolve_path(item.path)
             lrc_path = _find_lrc_file(item_path)
             if lrc_path:
-                os.remove(lrc_path)
-                log.info("Removed .lrc file: %s", lrc_path)
+                try:
+                    os.remove(lrc_path)
+                    log.info("Removed .lrc file: %s", lrc_path)
+                except OSError:
+                    log.warning("Failed to remove .lrc file: %s", lrc_path)
         else:
             log.warning("Failed to write tags for item_id=%d", item_id)
             return jsonify({"error": "Failed to write tags to audio file"}), 500

@@ -222,6 +222,8 @@ def apply_match(album_id):
     """Preview what would change if this candidate is applied."""
     data = request.get_json(silent=True) or {}
     candidate_index = data.get("candidate_index", 0)
+    if not isinstance(candidate_index, int):
+        return jsonify({"error": "candidate_index must be an integer"}), 400
 
     with state.identify_lock:
         task = state.identify_tasks.get(f"album_{album_id}")
@@ -284,6 +286,8 @@ def confirm_match(album_id):
     """Apply the selected match using beets API and write tags to files."""
     data = request.get_json(silent=True) or {}
     candidate_index = data.get("candidate_index", 0)
+    if not isinstance(candidate_index, int):
+        return jsonify({"error": "candidate_index must be an integer"}), 400
 
     lib = None
     with state.identify_lock:

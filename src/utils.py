@@ -164,8 +164,13 @@ def _resize_image(src_path, max_size, quality=95):
             img = img.convert("RGB")
 
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-        img.save(tmp, format="JPEG", quality=quality, optimize=True)
-        tmp.close()
+        try:
+            img.save(tmp, format="JPEG", quality=quality, optimize=True)
+            tmp.close()
+        except Exception:
+            tmp.close()
+            os.unlink(tmp.name)
+            raise
     return tmp.name
 
 

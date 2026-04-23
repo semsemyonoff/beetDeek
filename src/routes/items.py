@@ -358,7 +358,7 @@ def items_identify():
 
     library_db = current_app.config["LIBRARY_DB"]
 
-    task_id = str(uuid.uuid4())[:8]
+    task_id = str(uuid.uuid4())
     task_key = f"items_{task_id}"
 
     task = {
@@ -412,6 +412,8 @@ def items_apply(task_id):
     """Preview what would change if the selected candidate is applied."""
     data = request.get_json(silent=True) or {}
     candidate_index = data.get("candidate_index", 0)
+    if not isinstance(candidate_index, int):
+        return jsonify({"error": "candidate_index must be an integer"}), 400
 
     task_key = f"items_{task_id}"
     with state.identify_lock:
@@ -467,6 +469,8 @@ def items_confirm(task_id):
     """Create a new album from items and write matched tags to files."""
     data = request.get_json(silent=True) or {}
     candidate_index = data.get("candidate_index", 0)
+    if not isinstance(candidate_index, int):
+        return jsonify({"error": "candidate_index must be an integer"}), 400
 
     task_key = f"items_{task_id}"
     lib = None
