@@ -69,10 +69,10 @@ src/
 ## Implementation Steps
 
 ### Task 1: Create CLAUDE.md with current structure documentation
-- [ ] create CLAUDE.md at project root documenting current architecture, tech stack, dev commands, and conventions
-- [ ] document the current monolithic structure (app.py, templates, static)
-- [ ] document the target modular structure and refactoring goals
-- [ ] document constraint: single gunicorn worker required for in-memory state
+- [x] create CLAUDE.md at project root documenting current architecture, tech stack, dev commands, and conventions
+- [x] document the current monolithic structure (app.py, templates, static)
+- [x] document the target modular structure and refactoring goals
+- [x] document constraint: single gunicorn worker required for in-memory state
 
 ### Task 2: Bootstrap test and lint tooling
 - [ ] create `requirements.txt` with runtime dependencies currently only listed in Dockerfile (flask, gunicorn, pyacoustid, requests, pylast, beautifulsoup4, Pillow) plus `beets` **without version pin** — beets version is controlled exclusively via `constraints.txt`
