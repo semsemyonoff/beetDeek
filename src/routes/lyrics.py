@@ -381,8 +381,11 @@ def confirm_album_lyrics(album_id):
     data = request.get_json(silent=True) or {}
     item_ids = data.get("item_ids", [])
 
-    if not item_ids:
+    if not isinstance(item_ids, list) or not item_ids:
         return jsonify({"error": "No tracks selected"}), 400
+
+    if not all(isinstance(i, int) for i in item_ids):
+        return jsonify({"error": "item_ids must be a list of integers"}), 400
 
     lib = None
     try:

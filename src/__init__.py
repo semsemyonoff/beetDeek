@@ -32,8 +32,10 @@ def create_app(test_config=None):
         and os.path.isfile(app.config.get("LIBRARY_DB", ""))
     ):
         try:
+            import beets  # noqa: PLC0415
             import beets.library  # noqa: PLC0415
 
+            beets.config.read(user=True, defaults=True)
             _lib = beets.library.Library(app.config["LIBRARY_DB"])
             _dir = _lib.directory
             if isinstance(_dir, bytes):

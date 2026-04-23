@@ -162,10 +162,15 @@ def identify(album_id):
 
     library_db = current_app.config["LIBRARY_DB"]
 
+    old_lib = None
     with state.identify_lock:
         existing = state.identify_tasks.get(f"album_{album_id}")
         if existing and existing.get("status") == "running":
             return jsonify({"status": "running", "task_id": existing["task_id"]}), 409
+
+        # Close any open Library from a previous done task before overwriting.
+        if existing:
+            old_lib = existing.pop("_lib", None)
 
         task_id = str(uuid.uuid4())[:8]
         task = {
@@ -178,6 +183,12 @@ def identify(album_id):
             "error": None,
         }
         state.identify_tasks[f"album_{album_id}"] = task
+
+    if old_lib is not None:
+        try:
+            old_lib._close()
+        except Exception:
+            pass
 
     t = threading.Thread(
         target=_run_identify,
@@ -198,10 +209,12 @@ def identify(album_id):
 
 @bp.route("/api/album/<int:album_id>/identify/status")
 def identify_status(album_id):
-    task = state.identify_tasks.get(f"album_{album_id}")
-    if not task:
+    with state.identify_lock:
+        task = state.identify_tasks.get(f"album_{album_id}")
+        task_json = _get_task_json(task) if task else None
+    if task_json is None:
         return jsonify({"status": "idle"})
-    return jsonify(_get_task_json(task))
+    return jsonify(task_json)
 
 
 @bp.route("/api/album/<int:album_id>/apply", methods=["POST"])
@@ -210,11 +223,12 @@ def apply_match(album_id):
     data = request.get_json(silent=True) or {}
     candidate_index = data.get("candidate_index", 0)
 
-    task = state.identify_tasks.get(f"album_{album_id}")
-    if not task or task["status"] != "done":
-        return jsonify({"error": "No identification results"}), 400
+    with state.identify_lock:
+        task = state.identify_tasks.get(f"album_{album_id}")
+        if not task or task.get("status") != "done":
+            return jsonify({"error": "No identification results"}), 400
+        matches = task.get("_matches", [])
 
-    matches = task.get("_matches", [])
     if candidate_index < 0 or candidate_index >= len(matches):
         return jsonify({"error": "Invalid candidate index"}), 400
 
@@ -271,19 +285,17 @@ def confirm_match(album_id):
     data = request.get_json(silent=True) or {}
     candidate_index = data.get("candidate_index", 0)
 
-    task = state.identify_tasks.get(f"album_{album_id}")
-    if not task or task["status"] != "done":
-        return jsonify({"error": "No identification results"}), 400
-
-    matches = task.get("_matches", [])
-    if candidate_index < 0 or candidate_index >= len(matches):
-        return jsonify({"error": "Invalid candidate index"}), 400
-
-    album_match = matches[candidate_index]
-
     lib = None
     with state.identify_lock:
+        task = state.identify_tasks.get(f"album_{album_id}")
+        if not task or task.get("status") != "done":
+            return jsonify({"error": "No identification results"}), 400
+        matches = task.get("_matches", [])
+        if candidate_index < 0 or candidate_index >= len(matches):
+            return jsonify({"error": "Invalid candidate index"}), 400
         lib = task.pop("_lib", None)
+
+    album_match = matches[candidate_index]
     if lib is None:
         lib = _init_beets(current_app.config["LIBRARY_DB"])
     try:
