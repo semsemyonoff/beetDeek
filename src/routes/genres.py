@@ -125,7 +125,7 @@ def confirm_genre(album_id):
 @bp.route("/api/album/<int:album_id>/genre/save", methods=["POST"])
 def save_genre(album_id):
     """Manually set genre for album and its tracks."""
-    genre = (request.json or {}).get("genre", "").strip()
+    genre = (request.get_json(silent=True) or {}).get("genre", "").strip()
     if not genre:
         return jsonify({"error": "Genre cannot be empty"}), 400
 

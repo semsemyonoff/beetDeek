@@ -282,8 +282,10 @@ def confirm_match(album_id):
     album_match = matches[candidate_index]
 
     lib = None
-    lib = task.get("_lib") or _init_beets(current_app.config["LIBRARY_DB"])
-    task.pop("_lib", None)
+    with state.identify_lock:
+        lib = task.pop("_lib", None)
+    if lib is None:
+        lib = _init_beets(current_app.config["LIBRARY_DB"])
     try:
         album = lib.get_album(album_id)
         if not album:

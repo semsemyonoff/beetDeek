@@ -17,14 +17,15 @@ def track_lyrics(album_id, item_id):
 
     try:
         conn = _get_ro_conn()
-        row = conn.execute(
-            "SELECT lyrics, path FROM items WHERE id = ? AND album_id = ?",
-            (item_id, album_id),
-        ).fetchone()
-        if not row:
+        try:
+            row = conn.execute(
+                "SELECT lyrics, path FROM items WHERE id = ? AND album_id = ?",
+                (item_id, album_id),
+            ).fetchone()
+        finally:
             conn.close()
+        if not row:
             return jsonify({"error": "Track not found"}), 404
-        conn.close()
     except sqlite3.OperationalError as e:
         return jsonify({"error": str(e)}), 500
 
@@ -192,7 +193,9 @@ def embed_lrc_lyrics(album_id, item_id):
 
         item.lyrics = lrc_text
         item.store()
-        item.write()
+        if not item.try_write():
+            log.warning("Failed to write tags for item_id=%d: %s", item_id, item.title)
+            return jsonify({"error": "Failed to write tags to audio file"}), 500
 
         os.remove(lrc_path)
         log.info("Embedded .lrc and removed file for item_id=%d: %s", item_id, lrc_path)
@@ -229,7 +232,9 @@ def embed_all_lrc(album_id):
                 continue
             item.lyrics = lrc_text
             item.store()
-            item.write()
+            if not item.try_write():
+                log.warning("Failed to write tags for item_id=%d: %s", item.id, item.title)
+                continue
             os.remove(lrc_path)
             embedded.append({"id": item.id, "title": item.title})
             log.info("Embedded .lrc for item_id=%d: %s", item.id, lrc_path)

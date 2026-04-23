@@ -4,7 +4,7 @@ import sqlite3
 
 import pytest
 
-from src import create_app
+from src import create_app, state
 
 BEETS_SCHEMA_DDL = """
 CREATE TABLE IF NOT EXISTS albums (
@@ -156,6 +156,18 @@ def insert_item(db_path: str, album_id: int, **kwargs) -> int:
         return cur.lastrowid
     finally:
         conn.close()
+
+
+@pytest.fixture(autouse=True)
+def reset_global_state():
+    """Reset shared in-memory state before each test to prevent test pollution."""
+    state.identify_tasks.clear()
+    state.rescan_proc = None
+    state.rescan_snapshot = None
+    yield
+    state.identify_tasks.clear()
+    state.rescan_proc = None
+    state.rescan_snapshot = None
 
 
 @pytest.fixture()
