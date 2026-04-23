@@ -75,15 +75,15 @@ src/
 - [x] document constraint: single gunicorn worker required for in-memory state
 
 ### Task 2: Bootstrap test and lint tooling
-- [ ] create `requirements.txt` with runtime dependencies currently only listed in Dockerfile (flask, gunicorn, pyacoustid, requests, pylast, beautifulsoup4, Pillow) plus `beets` **without version pin** — beets version is controlled exclusively via `constraints.txt`
-- [ ] create `constraints.txt` with `beets==2.8.0` — single source of truth for beets version. Both local dev (`pip install -r requirements.txt -c constraints.txt`) and Dockerfile use the same file. Task 12 (beets migration) bumps this to `2.10.0`
-- [ ] create `pyproject.toml` with pytest, pytest-cov, and ruff configuration
-- [ ] create `requirements-dev.txt` with test/lint tools (pytest, pytest-cov, ruff) that layers on top of `requirements.txt`
-- [ ] update Dockerfile: `COPY requirements.txt constraints.txt ./` and `pip install -r requirements.txt -c constraints.txt` — constraints file pins beets. Remove `ARG BEETS_VERSION` and the old inline `pip install "beets==${BEETS_VERSION}"` — `constraints.txt` is now the single source of truth, no duplicate version reference
-- [ ] create `tests/__init__.py` and `tests/conftest.py` with DB-level fixtures only (no Flask app fixture yet — `create_app()` doesn't exist until Task 3): temporary SQLite file via `tmp_path` seeded with beets schema tables (`albums`, `items`, `album_attributes`, `item_attributes`), a helper to insert test rows
-- [ ] add `Makefile` targets: `test` (pytest), `lint` (ruff check), `fmt` (ruff format), `coverage` (pytest-cov)
-- [ ] write a trivial smoke test that creates the temp DB, inserts a row, and reads it back — verifies the fixture works without needing Flask
-- [ ] run `make test` — must pass before next task
+- [x] create `requirements.txt` with runtime dependencies currently only listed in Dockerfile (flask, gunicorn, pyacoustid, requests, pylast, beautifulsoup4, Pillow) plus `beets` **without version pin** — beets version is controlled exclusively via `constraints.txt`
+- [x] create `constraints.txt` with `beets==2.8.0` — single source of truth for beets version. Both local dev (`pip install -r requirements.txt -c constraints.txt`) and Dockerfile use the same file. Task 12 (beets migration) bumps this to `2.10.0`
+- [x] create `pyproject.toml` with pytest, pytest-cov, and ruff configuration
+- [x] create `requirements-dev.txt` with test/lint tools (pytest, pytest-cov, ruff) that layers on top of `requirements.txt`
+- [x] update Dockerfile: `COPY requirements.txt constraints.txt ./` and `pip install -r requirements.txt -c constraints.txt` — constraints file pins beets. Remove `ARG BEETS_VERSION` and the old inline `pip install "beets==${BEETS_VERSION}"` — `constraints.txt` is now the single source of truth, no duplicate version reference
+- [x] create `tests/__init__.py` and `tests/conftest.py` with DB-level fixtures only (no Flask app fixture yet — `create_app()` doesn't exist until Task 3): temporary SQLite file via `tmp_path` seeded with beets schema tables (`albums`, `items`, `album_attributes`, `item_attributes`), a helper to insert test rows
+- [x] add `Makefile` targets: `test` (pytest), `lint` (ruff check), `fmt` (ruff format), `coverage` (pytest-cov)
+- [x] write a trivial smoke test that creates the temp DB, inserts a row, and reads it back — verifies the fixture works without needing Flask
+- [x] run `make test` — must pass before next task
 
 ### Task 3: Create src/ package with app factory and shared modules
 - [ ] create `src/__init__.py` with `create_app(test_config=None)` factory function that accepts optional config dict for overriding `LIBRARY_DB`, `IMPORT_DIR`, and other settings (enables test fixtures to inject temporary DB file paths without monkeypatching module-level constants)
