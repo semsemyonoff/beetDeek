@@ -75,14 +75,17 @@ def rescan():
 
 @bp.route("/api/rescan/status")
 def rescan_status():
-    if state.rescan_proc is None:
+    with state.rescan_lock:
+        proc = state.rescan_proc
+        snapshot = state.rescan_snapshot
+    if proc is None:
         return jsonify({"status": "idle"})
-    if state.rescan_proc.poll() is None:
+    if proc.poll() is None:
         return jsonify({"status": "running"})
-    result = {"status": "done", "returncode": state.rescan_proc.returncode}
-    if state.rescan_snapshot is not None:
+    result = {"status": "done", "returncode": proc.returncode}
+    if snapshot is not None:
         after = _take_snapshot()
-        added, removed = _compute_scan_diff(state.rescan_snapshot, after)
+        added, removed = _compute_scan_diff(snapshot, after)
         result["added"] = added
         result["removed"] = removed
     return jsonify(result)

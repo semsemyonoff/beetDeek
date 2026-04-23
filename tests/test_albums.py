@@ -127,6 +127,19 @@ class TestAlbumDetail:
         assert resp.status_code == 200
         assert resp.get_json()["genre"] == "Rock"
 
+    def test_genres_field_takes_precedence_over_genre(self, client, db_path):
+        """beets 2.10.0 stores genres in a list field; genres column takes precedence."""
+        album_id = insert_album(
+            db_path,
+            album="Multi Genre",
+            albumartist="Artist X",
+            genre="Old Genre",
+            genres="Electronic, Ambient",
+        )
+        resp = client.get(f"/api/album/{album_id}")
+        assert resp.status_code == 200
+        assert resp.get_json()["genre"] == "Electronic, Ambient"
+
     def test_empty_album_has_no_tracks(self, client, db_path):
         album_id = insert_album(db_path, album="Empty", albumartist="Artist F")
         resp = client.get(f"/api/album/{album_id}")

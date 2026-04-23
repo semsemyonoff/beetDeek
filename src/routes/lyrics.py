@@ -378,7 +378,7 @@ def confirm_album_lyrics(album_id):
 
         for item_id in item_ids:
             with state.identify_lock:
-                task = state.identify_tasks.pop(f"lyrics_{item_id}", None)
+                task = state.identify_tasks.get(f"lyrics_{item_id}")
             if not task or not task.get("_lyrics_obj"):
                 continue
 
@@ -397,6 +397,9 @@ def confirm_album_lyrics(album_id):
             item.lyrics = new_lyrics.full_text
             item.store()
             item.try_write()
+
+            with state.identify_lock:
+                state.identify_tasks.pop(f"lyrics_{item_id}", None)
 
             item_path = _resolve_path(item.path)
             lrc_path = _find_lrc_file(item_path)
