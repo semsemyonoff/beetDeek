@@ -29,6 +29,7 @@ beetDeek/
 │   │   ├── genres.py       # Genre fetch/confirm/save
 │   │   ├── lyrics.py       # Lyrics CRUD (single + bulk)
 │   │   ├── identify.py     # Identify/status/apply/confirm
+│   │   ├── items.py        # Untagged item management: metadata edit, group identify
 │   │   └── scan.py         # Rescan + status
 │   ├── static/
 │   │   ├── style.css
@@ -59,6 +60,7 @@ beetDeek/
 │   ├── test_genres.py
 │   ├── test_lyrics.py
 │   ├── test_identify.py
+│   ├── test_items.py
 │   └── test_scan.py
 ├── constraints.txt         # beets version pin (single source of truth)
 ├── requirements.txt        # Runtime dependencies
@@ -79,7 +81,7 @@ The application uses module-level globals for shared state across request thread
 - `rescan_lock` (threading.Lock) — guards scan process access
 - `rescan_proc` (subprocess.Popen | None) — running beet import/scan subprocess
 - `rescan_snapshot` (dict | None) — item snapshot `{id: (title, artist, album_id)}` taken before scan starts
-- `identify_tasks` (dict) — background autotag tasks keyed by album_id; cover previews stored under `f"cover_{album_id}"` keys
+- `identify_tasks` (dict) — background autotag tasks; album tasks keyed by `album_id` (int), items group tasks keyed by `f"items_{uuid}"`, cover previews stored under `f"cover_{album_id}"` keys
 - `identify_lock` (threading.Lock) — guards identify task access
 
 ### Key Config (app.config via create_app)
@@ -118,6 +120,12 @@ The application uses module-level globals for shared state across request thread
 - `POST /api/album/<id>/confirm` — write chosen candidate tags to files/DB
 - `POST /api/rescan` — start library rescan
 - `GET /api/rescan/status` — rescan status
+- `GET /api/items/untagged` — list items belonging to albums with NULL/empty albumartist
+- `POST /api/items/<item_id>/metadata` — update artist/album on a single untagged item
+- `POST /api/items/identify` — start background identification for a list of item IDs
+- `GET /api/items/identify/<task_id>/status` — poll items identification status
+- `POST /api/items/identify/<task_id>/apply` — preview tag diff for selected candidate
+- `POST /api/items/identify/<task_id>/confirm` — create album and write tags (DB failure → rollback; partial file write failure → warnings returned)
 
 ## Architecture Constraints
 

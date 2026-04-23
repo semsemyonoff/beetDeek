@@ -18,6 +18,7 @@ Works well alongside tools like Lidarr that manage the file library, while beets
 - **Cover art** — fetch from multiple sources (filesystem, Cover Art Archive, iTunes, Amazon), preview, confirm; manual upload supported. High-res file + embedded thumbnail
 - **Lyrics** — per-track and bulk album lyrics via lrclib (synced and plain text). Inline viewer/editor, online search with diff preview, external `.lrc` file embed
 - **Rescan** — quick (incremental) or full library rescan to add new files and remove stale entries
+- **Unknown artist management** — list untagged items, edit artist/album inline, and identify a group of files against MusicBrainz to create a properly tagged album
 - **Light/dark theme** — auto-detects system preference with manual toggle, persisted in localStorage
 
 ## Quick start
@@ -189,3 +190,14 @@ make coverage
 | POST | `/api/album/<id>/track/<tid>/lyrics/save` | Save manually edited lyrics |
 | POST | `/api/album/<id>/lyrics/fetch` | Bulk fetch lyrics for all album tracks |
 | POST | `/api/album/<id>/lyrics/confirm` | Write lyrics for selected tracks |
+
+### Untagged items
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/items/untagged` | List items belonging to albums with no albumartist |
+| POST | `/api/items/<id>/metadata` | Update artist/album fields on a single item |
+| POST | `/api/items/identify` | Start MusicBrainz autotag for a group of item IDs |
+| GET | `/api/items/identify/<task_id>/status` | Poll identification progress and candidates |
+| POST | `/api/items/identify/<task_id>/apply` | Preview tag changes for a candidate |
+| POST | `/api/items/identify/<task_id>/confirm` | Create album and write matched tags to files |

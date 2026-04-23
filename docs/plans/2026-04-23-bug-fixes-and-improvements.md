@@ -80,8 +80,8 @@
 - [x] verify test coverage meets 80%+ standard (`make coverage`) — 87% total
 
 ### Task 5: [Final] Update documentation
-- [ ] update CLAUDE.md with new items blueprint and endpoints
-- [ ] update README.md API reference if needed
+- [x] update CLAUDE.md with new items blueprint and endpoints
+- [x] update README.md API reference if needed
 
 ## Technical Details
 
