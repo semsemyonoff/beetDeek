@@ -15,6 +15,7 @@ def create_app(test_config=None):
 
     app.config["LIBRARY_DB"] = os.environ.get("BEETS_LIBRARY_DB", "/data/beets/library.db")
     app.config["IMPORT_DIR"] = os.environ.get("BEETS_IMPORT_DIR", "/music")
+    app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB upload limit
     # LIBRARY_ROOT: base path for resolving relative item/album paths stored by
     # beets 2.10.0. Sourced from beets.library.Library.directory at startup.
     # Empty string means paths are treated as absolute (pre-2.10.0 behaviour).
