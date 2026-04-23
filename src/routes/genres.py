@@ -10,6 +10,7 @@ bp = Blueprint("genres", __name__)
 @bp.route("/api/album/<int:album_id>/genre", methods=["POST"])
 def fetch_genre_preview(album_id):
     """Fetch genre from Last.fm without writing. Returns old and new values."""
+    lib = None
     try:
         library_db = current_app.config["LIBRARY_DB"]
         lib = _init_beets(library_db)
@@ -37,21 +38,18 @@ def fetch_genre_preview(album_id):
             album.album,
         )
 
-        # Fetch without writing (pretend mode)
+        # Fetch without writing (pretend mode); restore old value unconditionally
         lastgenre.config["pretend"].set(True)
         try:
             lastgenre._process(album, write=False)
+            new_genre = album.get("genres", "") or ""
         finally:
             lastgenre.config["pretend"].set(False)
+            album.genres = old_genre
+            album.store()
 
-        new_genre = album.get("genres", "") or ""
         log.info("Genre preview for album_id=%d: %r -> %r", album_id, old_genre, new_genre)
 
-        # Restore old value (we only previewed)
-        album.genres = old_genre
-        album.store()
-
-        lib._close()
         return jsonify(
             {
                 "status": "ok",
@@ -63,11 +61,15 @@ def fetch_genre_preview(album_id):
     except Exception as e:
         log.exception("Genre preview failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
+    finally:
+        if lib:
+            lib._close()
 
 
 @bp.route("/api/album/<int:album_id>/genre/confirm", methods=["POST"])
 def confirm_genre(album_id):
     """Write the fetched genre to album and its tracks."""
+    lib = None
     try:
         library_db = current_app.config["LIBRARY_DB"]
         lib = _init_beets(library_db)
@@ -98,22 +100,25 @@ def confirm_genre(album_id):
         new_genre = album.get("genres", "") or ""
         log.info("Genre written for album_id=%d: %s", album_id, new_genre)
 
-        lib._close()
         return jsonify({"status": "ok", "genre": _format_genre(new_genre)})
 
     except Exception as e:
         log.exception("Genre confirm failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
+    finally:
+        if lib:
+            lib._close()
 
 
 @bp.route("/api/album/<int:album_id>/genre/save", methods=["POST"])
 def save_genre(album_id):
     """Manually set genre for album and its tracks."""
-    try:
-        genre = (request.json or {}).get("genre", "").strip()
-        if not genre:
-            return jsonify({"error": "Genre cannot be empty"}), 400
+    genre = (request.json or {}).get("genre", "").strip()
+    if not genre:
+        return jsonify({"error": "Genre cannot be empty"}), 400
 
+    lib = None
+    try:
         library_db = current_app.config["LIBRARY_DB"]
         lib = _init_beets(library_db)
         album = lib.get_album(album_id)
@@ -131,9 +136,11 @@ def save_genre(album_id):
             item.try_write()
 
         log.info("Genre manually set for album_id=%d: %s", album_id, genre)
-        lib._close()
         return jsonify({"status": "ok", "genre": genre})
 
     except Exception as e:
         log.exception("Genre save failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
+    finally:
+        if lib:
+            lib._close()

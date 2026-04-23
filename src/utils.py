@@ -103,6 +103,26 @@ def _get_ro_conn():
 # ---------------------------------------------------------------------------
 
 
+def _find_lrc_file(item_path):
+    """Find a .lrc file next to the audio file."""
+    if not item_path:
+        return None
+    base = os.path.splitext(item_path)[0]
+    lrc = base + ".lrc"
+    if os.path.isfile(lrc):
+        return lrc
+    return None
+
+
+def _read_lrc_file(lrc_path):
+    """Read and return contents of a .lrc file."""
+    try:
+        with open(lrc_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception:
+        return None
+
+
 def _find_cover(album_dir):
     if not album_dir or not os.path.isdir(album_dir):
         return None
@@ -155,7 +175,8 @@ def _save_cover_to_album(album, src_path):
     """
     from beets import art
 
-    album_dir = _decode_path(album.path) if album.path else None
+    items = list(album.items())
+    album_dir = os.path.dirname(_resolve_path(items[0].path)) if items else None
     _remove_cover_files(album_dir)
 
     hires_path = _resize_image(src_path, COVER_HIRES_MAX, quality=95)

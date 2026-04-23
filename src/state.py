@@ -8,7 +8,6 @@ import threading
 
 # Identification + cover preview state
 # Cover previews are stored here too, keyed as f"cover_{album_id}"
-# (see app.py:593 for write, app.py:623 for read)
 identify_tasks: dict = {}
 identify_lock = threading.Lock()
 

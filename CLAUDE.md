@@ -96,21 +96,26 @@ The application uses module-level globals for shared state across request thread
 - `GET /api/artist` — artist albums
 - `GET /api/album/<id>` — album detail with tracks
 - `GET /api/album/<id>/track/<id>/tags` — track tags
-- `GET|POST /api/album/<id>/cover` — cover art get/fetch
-- `GET /api/album/<id>/cover/preview` — cover preview
-- `POST /api/album/<id>/cover/confirm` — confirm cover
-- `POST /api/album/<id>/cover/upload` — upload cover
-- `GET|POST /api/album/<id>/genre` — genre get/fetch
-- `POST /api/album/<id>/genre/confirm` — confirm genre
-- `GET|POST /api/album/<id>/lyrics` — lyrics get/fetch (single track)
-- `POST /api/album/<id>/lyrics/confirm` — confirm lyrics
-- `POST /api/album/<id>/lyrics/embed` — embed lyrics
-- `POST /api/album/<id>/lyrics/save` — save lyrics
-- `POST /api/album/<id>/lyrics/bulk` — bulk fetch lyrics
-- `POST /api/album/<id>/identify` — start identification
-- `GET /api/album/<id>/identify/status` — identification status
-- `POST /api/album/<id>/identify/apply` — apply identification
-- `POST /api/album/<id>/identify/confirm` — confirm identification
+- `GET /api/album/<id>/cover` — serve current cover image
+- `POST /api/album/<id>/cover/fetch` — fetch cover from online sources (preview)
+- `GET /api/album/<id>/cover/preview` — serve fetched cover preview
+- `POST /api/album/<id>/cover/confirm` — confirm and save fetched cover
+- `POST /api/album/<id>/cover/upload` — upload cover image
+- `POST /api/album/<id>/genre` — fetch genre from Last.fm (preview)
+- `POST /api/album/<id>/genre/confirm` — confirm and write fetched genre
+- `POST /api/album/<id>/genre/save` — manually save genre
+- `GET /api/album/<id>/track/<id>/lyrics` — get track lyrics
+- `POST /api/album/<id>/track/<id>/lyrics/fetch` — fetch lyrics from online (preview)
+- `POST /api/album/<id>/track/<id>/lyrics/confirm` — confirm and write fetched lyrics
+- `POST /api/album/<id>/track/<id>/lyrics/embed` — embed .lrc file into track
+- `POST /api/album/<id>/track/<id>/lyrics/save` — manually save lyrics
+- `POST /api/album/<id>/lyrics/fetch` — bulk fetch lyrics for all tracks
+- `POST /api/album/<id>/lyrics/confirm` — bulk confirm lyrics for selected tracks
+- `POST /api/album/<id>/lyrics/embed` — bulk embed .lrc files for all tracks
+- `POST /api/album/<id>/identify` — start background identification
+- `GET /api/album/<id>/identify/status` — poll identification status
+- `POST /api/album/<id>/apply` — preview diff for a candidate
+- `POST /api/album/<id>/confirm` — write chosen candidate tags to files/DB
 - `POST /api/rescan` — start library rescan
 - `GET /api/rescan/status` — rescan status
 

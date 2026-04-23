@@ -9,27 +9,13 @@ from src.utils import (
     _album_dir_from_items,
     _decode_path,
     _find_cover,
+    _find_lrc_file,
     _format_genre,
     _get_ro_conn,
     _resolve_path,
 )
 
 bp = Blueprint("albums", __name__)
-
-
-def _find_lrc_file(item_path):
-    """Find a .lrc file next to the audio file.
-
-    NOTE: This helper will be imported from src.routes.lyrics once that
-    blueprint is extracted in Task 9.
-    """
-    if not item_path:
-        return None
-    base = os.path.splitext(item_path)[0]
-    lrc = base + ".lrc"
-    if os.path.isfile(lrc):
-        return lrc
-    return None
 
 
 def _fmt_length(seconds):

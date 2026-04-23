@@ -5,7 +5,7 @@ import sqlite3
 
 from flask import Blueprint, jsonify, render_template, request
 
-from src.utils import _decode_path, _find_cover, _get_ro_conn
+from src.utils import _find_cover, _get_ro_conn, _resolve_path
 
 bp = Blueprint("library", __name__)
 
@@ -43,7 +43,7 @@ def library():
         dir_rows = conn2.execute("SELECT album_id, path FROM items GROUP BY album_id").fetchall()
         conn2.close()
         for dr in dir_rows:
-            item_dirs[dr["album_id"]] = os.path.dirname(_decode_path(dr["path"]))
+            item_dirs[dr["album_id"]] = os.path.dirname(_resolve_path(dr["path"]))
     except sqlite3.OperationalError:
         pass
 
@@ -52,7 +52,7 @@ def library():
         artist = r["albumartist"] or "Unknown Artist"
         yr = r["original_year"] or r["year"] or None
         albums = artists.setdefault(artist, [])
-        artpath = _decode_path(r["artpath"]) if r["artpath"] else None
+        artpath = _resolve_path(r["artpath"]) if r["artpath"] else None
         has_cover = bool(artpath and os.path.isfile(artpath))
         if not has_cover:
             has_cover = bool(_find_cover(item_dirs.get(r["id"])))
@@ -115,11 +115,11 @@ def search():
                 search_album_ids,
             ).fetchall()
             for dr in sdir_rows:
-                search_item_dirs[dr["album_id"]] = os.path.dirname(_decode_path(dr["path"]))
+                search_item_dirs[dr["album_id"]] = os.path.dirname(_resolve_path(dr["path"]))
 
         albums = []
         for r in album_rows:
-            artpath = _decode_path(r["artpath"]) if r["artpath"] else None
+            artpath = _resolve_path(r["artpath"]) if r["artpath"] else None
             has_cover = bool(artpath and os.path.isfile(artpath))
             if not has_cover:
                 has_cover = bool(_find_cover(search_item_dirs.get(r["id"])))
@@ -194,7 +194,7 @@ def artist_detail():
                 album_ids,
             ).fetchall()
             for dr in dir_rows:
-                item_dirs[dr["album_id"]] = os.path.dirname(_decode_path(dr["path"]))
+                item_dirs[dr["album_id"]] = os.path.dirname(_resolve_path(dr["path"]))
 
         conn.close()
     except sqlite3.OperationalError as e:
@@ -202,7 +202,7 @@ def artist_detail():
 
     albums = []
     for r in rows:
-        artpath = _decode_path(r["artpath"]) if r["artpath"] else None
+        artpath = _resolve_path(r["artpath"]) if r["artpath"] else None
         has_cover = bool(artpath and os.path.isfile(artpath))
         if not has_cover:
             has_cover = bool(_find_cover(item_dirs.get(r["id"])))

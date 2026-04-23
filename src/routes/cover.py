@@ -44,6 +44,7 @@ def album_cover(album_id):
 @bp.route("/api/album/<int:album_id>/cover/fetch", methods=["POST"])
 def fetch_cover(album_id):
     """Fetch cover art from online sources via fetchart plugin (preview)."""
+    lib = None
     try:
         library_db = current_app.config["LIBRARY_DB"]
         lib = _init_beets(library_db)
@@ -72,7 +73,6 @@ def fetch_cover(album_id):
 
         if not candidate or not candidate.path:
             log.info("No cover art found for album_id=%d", album_id)
-            lib._close()
             return jsonify({"status": "ok", "found": False})
 
         # Store candidate path temporarily for confirm step
@@ -89,7 +89,6 @@ def fetch_cover(album_id):
             _decode_path(candidate.path),
         )
 
-        lib._close()
         return jsonify(
             {
                 "status": "ok",
@@ -102,6 +101,9 @@ def fetch_cover(album_id):
     except Exception as e:
         log.exception("Cover fetch failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
+    finally:
+        if lib:
+            lib._close()
 
 
 @bp.route("/api/album/<int:album_id>/cover/preview")
@@ -123,6 +125,7 @@ def confirm_cover(album_id):
     if not task or not task.get("candidate_path"):
         return jsonify({"error": "No cover art to confirm"}), 400
 
+    lib = None
     try:
         library_db = current_app.config["LIBRARY_DB"]
         lib = _init_beets(library_db)
@@ -139,12 +142,14 @@ def confirm_cover(album_id):
         _save_cover_to_album(album, candidate_path)
 
         log.info("Cover art saved and embedded for album_id=%d", album_id)
-        lib._close()
         return jsonify({"status": "ok"})
 
     except Exception as e:
         log.exception("Cover confirm failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
+    finally:
+        if lib:
+            lib._close()
 
 
 @bp.route("/api/album/<int:album_id>/cover/upload", methods=["POST"])
@@ -161,29 +166,35 @@ def upload_cover(album_id):
     if not f.filename:
         return jsonify({"error": "Empty filename"}), 400
 
+    ext = os.path.splitext(f.filename)[1].lower() or ".jpg"
+    if ext not in {".jpg", ".jpeg", ".png", ".webp"}:
+        return jsonify({"error": f"Unsupported file type: {ext}"}), 400
+
+    tmp = None
+    lib = None
     try:
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir="/tmp")
+        f.save(tmp)
+        tmp.close()
+
         library_db = current_app.config["LIBRARY_DB"]
         lib = _init_beets(library_db)
         album = lib.get_album(album_id)
         if not album:
             return jsonify({"error": "Album not found"}), 404
 
-        ext = os.path.splitext(f.filename)[1] or ".jpg"
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir="/tmp")
-        f.save(tmp)
-        tmp.close()
-
         log.info("Uploading cover art for album_id=%d: %s", album_id, f.filename)
 
         _save_cover_to_album(album, tmp.name)
 
-        if os.path.exists(tmp.name):
-            os.unlink(tmp.name)
-
         log.info("Cover art uploaded and embedded for album_id=%d", album_id)
-        lib._close()
         return jsonify({"status": "ok"})
 
     except Exception as e:
         log.exception("Cover upload failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
+    finally:
+        if tmp and os.path.exists(tmp.name):
+            os.unlink(tmp.name)
+        if lib:
+            lib._close()

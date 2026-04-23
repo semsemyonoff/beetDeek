@@ -5,6 +5,7 @@ Endpoints:
     GET   /api/rescan/status  — poll rescan status
 """
 
+import shlex
 import subprocess
 import sys
 
@@ -61,7 +62,7 @@ def rescan():
             return jsonify({"status": "running"}), 409
         state.rescan_snapshot = _take_snapshot()
         inc = "-i" if mode == "quick" else "-I"
-        cmd = f"beet -v import -A -C {inc} {import_dir} && beet -v update -M"
+        cmd = f"beet -v import -A -C {inc} {shlex.quote(import_dir)} && beet -v update -M"
         log.info("Starting rescan (%s): %s", mode, cmd)
         state.rescan_proc = subprocess.Popen(
             cmd,
