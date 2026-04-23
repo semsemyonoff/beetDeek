@@ -334,6 +334,7 @@ def confirm_match(album_id):
             album.store()
             log.info("Album %d tagged successfully", album_id)
             task.pop("_matches", None)
+            task["status"] = "done"
         else:
             log.warning(
                 "Album %d: tag write failed for %d track(s), not marking as tagged",

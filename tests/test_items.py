@@ -135,6 +135,24 @@ class TestUpdateMetadata:
         assert resp.status_code == 200
         assert resp.get_json()["item_id"] == 42
 
+    def test_updates_title(self, client, mocker):
+        mock_item = mocker.MagicMock()
+        mock_item.try_write.return_value = True
+        mock_lib = mocker.MagicMock()
+        mock_lib.get_item.return_value = mock_item
+        mocker.patch("src.routes.items._init_beets", return_value=mock_lib)
+
+        resp = client.post("/api/items/1/metadata", json={"title": "New Title"})
+        assert resp.status_code == 200
+        assert mock_item.title == "New Title"
+
+    def test_returns_400_when_all_fields_empty(self, client, mocker):
+        mock_lib = mocker.MagicMock()
+        mocker.patch("src.routes.items._init_beets", return_value=mock_lib)
+
+        resp = client.post("/api/items/1/metadata", json={"title": "", "artist": "", "album": ""})
+        assert resp.status_code == 400
+
 
 # ---------------------------------------------------------------------------
 # POST /api/items/identify
@@ -419,8 +437,42 @@ class TestItemsConfirm:
         resp = client.post("/api/items/identify/c4/confirm", json={"candidate_index": 0})
         assert resp.status_code == 500
         assert "error" in resp.get_json()
-        # item.store() called again to restore original album_id
+        # album_id restored to original value and store() called
+        assert mock_item.album_id == 10
         assert mock_item.store.called
+        # apply_metadata not called since add_album failed first
+        mock_match.apply_metadata.assert_not_called()
+
+    def test_task_status_set_to_done_after_success(self, client, mocker):
+        mock_item = mocker.MagicMock()
+        mock_item.id = 1
+        mock_item.album_id = 10
+        mock_item.track = 1
+        mock_item.try_write.return_value = True
+
+        mock_album = mocker.MagicMock()
+        mock_album.id = 77
+
+        mock_match = mocker.MagicMock()
+        mock_match.mapping = {mock_item: mocker.MagicMock()}
+
+        mock_lib = mocker.MagicMock()
+        mock_lib.get_item.return_value = mock_item
+        mock_lib.add_album.return_value = mock_album
+
+        mocker.patch("src.routes.items._init_beets", return_value=mock_lib)
+
+        state.identify_tasks["items_c7"] = {
+            "task_id": "c7",
+            "status": "done",
+            "_matches": [mock_match],
+            "item_ids": [1],
+        }
+
+        resp = client.post("/api/items/identify/c7/confirm", json={"candidate_index": 0})
+        assert resp.status_code == 200
+        assert state.identify_tasks["items_c7"]["status"] == "done"
+        assert "_matches" not in state.identify_tasks["items_c7"]
 
     def test_returns_404_when_item_not_found(self, client, mocker):
         mock_match = mocker.MagicMock()

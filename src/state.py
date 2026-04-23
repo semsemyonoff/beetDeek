@@ -14,4 +14,4 @@ identify_lock = threading.Lock()
 # Rescan state
 rescan_lock = threading.Lock()
 rescan_proc = None  # subprocess.Popen | None
-rescan_snapshot = None  # {item_id: (title, artist, album_id)} | None
+rescan_snapshot = None  # {item_id: (title, artist, album_id, path)} | None

@@ -178,6 +178,7 @@ make coverage
 |--------|----------|-------------|
 | POST | `/api/album/<id>/genre` | Fetch genre preview from Last.fm |
 | POST | `/api/album/<id>/genre/confirm` | Write genre tags to files |
+| POST | `/api/album/<id>/genre/save` | Save manually entered genre tags |
 
 ### Lyrics
 
@@ -190,6 +191,7 @@ make coverage
 | POST | `/api/album/<id>/track/<tid>/lyrics/save` | Save manually edited lyrics |
 | POST | `/api/album/<id>/lyrics/fetch` | Bulk fetch lyrics for all album tracks |
 | POST | `/api/album/<id>/lyrics/confirm` | Write lyrics for selected tracks |
+| POST | `/api/album/<id>/lyrics/embed` | Bulk embed .lrc files for all album tracks |
 
 ### Untagged items
 

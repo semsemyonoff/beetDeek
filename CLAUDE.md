@@ -80,7 +80,7 @@ The application uses module-level globals for shared state across request thread
 
 - `rescan_lock` (threading.Lock) — guards scan process access
 - `rescan_proc` (subprocess.Popen | None) — running beet import/scan subprocess
-- `rescan_snapshot` (dict | None) — item snapshot `{id: (title, artist, album_id)}` taken before scan starts
+- `rescan_snapshot` (dict | None) — item snapshot `{id: (title, artist, album_id, path)}` taken before scan starts; path is resolved via `_resolve_path()` and used by `_compute_scan_diff()` to match by filesystem path rather than ID
 - `identify_tasks` (dict) — background autotag tasks; album tasks keyed by `album_id` (int), items group tasks keyed by `f"items_{uuid}"`, cover previews stored under `f"cover_{album_id}"` keys
 - `identify_lock` (threading.Lock) — guards identify task access
 

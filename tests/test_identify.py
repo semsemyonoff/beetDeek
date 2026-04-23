@@ -251,6 +251,34 @@ class TestConfirmMatch:
         mock_match.apply_album_metadata.assert_called_once_with(mock_album)
         mock_album.store.assert_called()
 
+    def test_task_status_set_to_done_after_success(self, client, mocker):
+        mock_item = mocker.MagicMock()
+        mock_item.track = 1
+        mock_item.title = "Track 1"
+        mock_item.try_write.return_value = True
+
+        mock_album = mocker.MagicMock()
+
+        mock_match = mocker.MagicMock()
+        mock_match.info.artist = "A"
+        mock_match.info.album = "B"
+        mock_match.info.data_source = "MB"
+        mock_match.distance = 0.0
+        mock_match.mapping = {mock_item: mocker.MagicMock()}
+
+        mock_lib = mocker.MagicMock()
+        mock_lib.get_album.return_value = mock_album
+
+        state.identify_tasks["album_1"] = {
+            "status": "done",
+            "_matches": [mock_match],
+            "_lib": mock_lib,
+        }
+
+        client.post("/api/album/1/confirm", json={"candidate_index": 0})
+
+        assert state.identify_tasks["album_1"]["status"] == "done"
+
     def test_cleans_up_private_keys_after_confirm(self, client, mocker):
         mock_item = mocker.MagicMock()
         mock_item.track = 1

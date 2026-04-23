@@ -345,11 +345,8 @@ function renderItemsDiff(taskId, diff) {
     html += "</tbody></table></div>";
     html += `<button class="btn btn-accent" onclick="confirmItemsMatch('${taskId}', ${diff.candidate_index})">Confirm & Create Album</button>`;
 
-    diffArea.innerHTML = html;
-
-    function get(id) { return document.getElementById(id); }
-    const diffArea2 = get("items-diff-area");
-    if (diffArea2) diffArea2.innerHTML = html;
+    const diffEl = document.getElementById("items-diff-area");
+    if (diffEl) diffEl.innerHTML = html;
 }
 
 async function confirmItemsMatch(taskId, candidateIndex) {
@@ -370,6 +367,8 @@ async function confirmItemsMatch(taskId, candidateIndex) {
             msg += `<br><small style="color:#e9a84c">Warnings: ${d.warnings.map(esc).join("; ")}</small>`;
         }
         if (diffArea) diffArea.innerHTML = `<div style="color:#4ecca3;padding:1rem;text-align:center">${msg}</div>`;
+        // Bust artist cache so Unknown Artist page re-fetches after navigation back
+        delete _artistCache["Unknown Artist"];
         // Navigate to new album
         setTimeout(() => navigate(`album/${d.album_id}`), 1200);
     } catch (e) {

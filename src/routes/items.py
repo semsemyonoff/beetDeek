@@ -190,11 +190,12 @@ def untagged_items():
 def update_metadata(item_id):
     """Update artist and album fields on a single item via beets Library."""
     data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
     artist = (data.get("artist") or "").strip()
     album = (data.get("album") or "").strip()
 
-    if not artist and not album:
-        return jsonify({"error": "At least one of artist or album must be provided"}), 400
+    if not title and not artist and not album:
+        return jsonify({"error": "At least one of title, artist, or album must be provided"}), 400
 
     library_db = current_app.config["LIBRARY_DB"]
     lib = None
@@ -204,6 +205,8 @@ def update_metadata(item_id):
         if item is None:
             return jsonify({"error": "Item not found"}), 404
 
+        if title:
+            item.title = title
         if artist:
             item.artist = artist
         if album:
@@ -374,12 +377,7 @@ def items_confirm(task_id):
             album_match.info.album,
         )
 
-        # Apply track-level metadata to item objects in memory
-        album_match.apply_metadata()
-        for item in album_match.mapping.keys():
-            item.store()
-
-        # Create new album record; on failure, rollback item album_ids
+        # Create new album record first; on failure nothing has been modified yet
         album = None
         try:
             album = lib.add_album(items)
@@ -390,6 +388,11 @@ def items_confirm(task_id):
                 item.store()
             task["status"] = "done"
             return jsonify({"error": f"Failed to create album: {e}"}), 500
+
+        # Apply track-level metadata to item objects in memory and persist
+        album_match.apply_metadata()
+        for item in album_match.mapping.keys():
+            item.store()
 
         # Apply album-level metadata and persist
         album_match.apply_album_metadata(album)
@@ -409,6 +412,7 @@ def items_confirm(task_id):
                 log.info("Wrote tags for item %d: %s", item.id, item.title)
 
         task.pop("_matches", None)
+        task["status"] = "done"
         log.info(
             "Items identify confirm done task=%s album_id=%d warnings=%d",
             task_id,
