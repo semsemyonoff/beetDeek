@@ -525,9 +525,14 @@ def items_confirm(task_id):
         # linked to it is guaranteed to be an orphan.
         album = None
         try:
-            with lib.transaction() as tx:
-                rows = tx.query("SELECT COALESCE(MAX(id), 0) FROM albums")
+            conn = _get_ro_conn()
+            try:
+                rows = conn.execute(
+                    "SELECT COALESCE(MAX(id), 0) FROM albums"
+                ).fetchall()
                 max_album_id_before = rows[0][0]
+            finally:
+                conn.close()
         except Exception:
             max_album_id_before = 0
             log.warning(
@@ -551,16 +556,19 @@ def items_confirm(task_id):
             # but the exception fired before the item loop assigned album_id to
             # any item, so no in-memory change is visible.
             try:
-                with lib.transaction() as tx:
-                    rows = tx.query(
+                conn = _get_ro_conn()
+                try:
+                    rows = conn.execute(
                         "SELECT a.id FROM albums a "
                         "WHERE a.id > ? "
                         "AND NOT EXISTS "
                         "(SELECT 1 FROM items i WHERE i.album_id = a.id)",
                         (max_album_id_before,),
-                    )
+                    ).fetchall()
                     for row in rows:
                         orphan_album_ids.add(row[0])
+                finally:
+                    conn.close()
             except Exception:
                 log.exception(
                     "Failed to scan for orphan albums after add_album failure "

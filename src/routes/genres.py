@@ -123,15 +123,17 @@ def confirm_genre(album_id):
         # set pretend=True before _process runs, causing confirm to silently
         # skip writing the genre.
         # Re-load the album inside the lock so _process() operates on the
-        # current DB state. Without this, a concurrent /genre/save that
-        # committed between the initial load and lock acquisition could result
-        # in _process() with force=false skipping the Last.fm lookup (because
-        # the stale album has a non-empty genres field) and then writing the
-        # stale genre back to DB, overwriting the manual save.
+        # current DB state.
+        # Clear genres in-memory before calling _process so lastgenre always
+        # fetches from Last.fm regardless of the force config. Without this,
+        # if the album already has genres set (e.g. from a prior save_genre),
+        # _process with force=False skips the lookup entirely and writes
+        # nothing, making confirm a silent no-op.
         with _genre_plugin_lock:
             fresh = lib.get_album(album_id)
             if not fresh:
                 return jsonify({"error": "Album not found"}), 404
+            fresh.genres = []
             lastgenre._process(fresh, write=True)
 
         new_genre = fresh.get("genres", "") or ""

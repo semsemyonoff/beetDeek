@@ -154,6 +154,37 @@ class TestConfirmGenre:
         data = resp.get_json()
         assert data["genre"] == "Rock, Pop"
 
+    def test_clears_genres_before_process_so_existing_genre_is_overwritten(
+        self, client, mocker
+    ):
+        """confirm_genre must clear fresh.genres before calling _process.
+
+        Without clearing, lastgenre._process with force=False skips the Last.fm
+        lookup when the album already has genres, making confirm a silent no-op.
+        """
+        genres_at_call_time = []
+
+        def capture_genres_on_process(album, write):
+            genres_at_call_time.append(list(album.genres))
+
+        mock_album = mocker.MagicMock()
+        mock_album.albumartist = "Artist"
+        mock_album.album = "Album"
+        mock_album.genres = ["OldGenre"]
+        mock_album.get.return_value = "NewGenre"
+        mock_lib = mocker.MagicMock()
+        mock_lib.get_album.return_value = mock_album
+        mocker.patch("src.routes.genres._init_beets", return_value=mock_lib)
+
+        mock_plugin = mocker.MagicMock()
+        mock_plugin.name = "lastgenre"
+        mock_plugin._process.side_effect = capture_genres_on_process
+        mocker.patch("beets.plugins.find_plugins", return_value=[mock_plugin])
+
+        resp = client.post("/api/album/1/genre/confirm")
+        assert resp.status_code == 200
+        assert genres_at_call_time == [[]], "genres must be cleared before _process"
+
 
 # ---------------------------------------------------------------------------
 # POST /api/album/<id>/genre/save
