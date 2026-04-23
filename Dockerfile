@@ -8,8 +8,7 @@ COPY requirements.txt constraints.txt ./
 RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 COPY app.py /app/app.py
-COPY templates /app/templates
-COPY static /app/static
+COPY src /app/src
 
 RUN mkdir -p /tmp/beetdeck && chmod 1777 /tmp/beetdeck
 
