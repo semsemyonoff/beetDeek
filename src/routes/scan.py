@@ -26,8 +26,10 @@ def _take_snapshot():
     """Snapshot current items {id: (title, artist, album_id, path)} from the DB."""
     try:
         conn = _get_ro_conn()
-        rows = conn.execute("SELECT id, title, artist, album_id, path FROM items").fetchall()
-        conn.close()
+        try:
+            rows = conn.execute("SELECT id, title, artist, album_id, path FROM items").fetchall()
+        finally:
+            conn.close()
         return {
             r["id"]: (r["title"], r["artist"], r["album_id"], _resolve_path(r["path"]))
             for r in rows

@@ -165,7 +165,7 @@ def identify(album_id):
     old_lib = None
     with state.identify_lock:
         existing = state.identify_tasks.get(f"album_{album_id}")
-        if existing and existing.get("status") == "running":
+        if existing and existing.get("status") in ("running", "confirming"):
             return jsonify({"status": "running", "task_id": existing["task_id"]}), 409
 
         # Close any open Library from a previous done task before overwriting.

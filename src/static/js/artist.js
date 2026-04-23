@@ -238,8 +238,10 @@ async function pollItemsIdentify(taskId) {
         const d = await r.json();
         if (d.status === "running") return;
         clearInterval(_itemsIdentifyPoll);
+        const resultsEl = $("#items-identify-results");
+        if (!resultsEl) return;
         if (d.status === "error") {
-            $("#items-identify-results").innerHTML = `<div class="error">${esc(d.error)}</div>`;
+            resultsEl.innerHTML = `<div class="error">${esc(d.error)}</div>`;
             return;
         }
         renderItemsCandidates(taskId, d.candidates || []);
@@ -255,8 +257,10 @@ function distClass(d) {
 }
 
 function renderItemsCandidates(taskId, candidates) {
+    const resultsEl = $("#items-identify-results");
+    if (!resultsEl) return;
     if (!candidates.length) {
-        $("#items-identify-results").innerHTML = '<div class="loading">No matches found</div>';
+        resultsEl.innerHTML = '<div class="loading">No matches found</div>';
         return;
     }
     _itemsSelectedCandidate = null;
@@ -281,7 +285,7 @@ function renderItemsCandidates(taskId, candidates) {
         .join("");
     html += `<button class="btn btn-accent" id="items-apply-btn" onclick="applyItemsMatch('${taskId}')" disabled>Apply Selected</button>`;
     html += '</div><div id="items-diff-area"></div>';
-    $("#items-identify-results").innerHTML = html;
+    resultsEl.innerHTML = html;
 }
 
 function selectItemsCandidate(idx) {
