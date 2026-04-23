@@ -308,6 +308,7 @@ def confirm_match(album_id):
             lib = _init_beets(current_app.config["LIBRARY_DB"])
         album = lib.get_album(album_id)
         if not album:
+            task.pop("_matches", None)
             task["status"] = "done"
             return jsonify({"error": "Album not found"}), 404
 
@@ -354,6 +355,7 @@ def confirm_match(album_id):
         return jsonify({"status": "ok"})
 
     except Exception as e:
+        task.pop("_matches", None)
         task["status"] = "done"
         log.exception("Confirm failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
