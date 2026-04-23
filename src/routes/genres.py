@@ -57,10 +57,10 @@ def fetch_genre_preview(album_id):
                 new_genre = album.get("genres", "") or ""
             finally:
                 lastgenre.config["pretend"].set(False)
-
-        # Restore old genre outside the lock to avoid holding it across DB I/O.
-        album.genres = old_genre
-        album.store()
+                # Restore in-memory state inside the lock so it always runs,
+                # even if _process raises.
+                album.genres = old_genre
+                album.store()
 
         log.info("Genre preview for album_id=%d: %r -> %r", album_id, old_genre, new_genre)
 

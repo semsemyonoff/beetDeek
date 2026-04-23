@@ -304,6 +304,7 @@ def confirm_match(album_id):
     try:
         album = lib.get_album(album_id)
         if not album:
+            task["status"] = "done"
             return jsonify({"error": "Album not found"}), 404
 
         log.info(
@@ -339,6 +340,7 @@ def confirm_match(album_id):
                 album_id,
                 len(write_failures),
             )
+            task["status"] = "done"
             return (
                 jsonify({"error": f"Failed to write tags for {len(write_failures)} track(s)"}),
                 500,
@@ -347,6 +349,7 @@ def confirm_match(album_id):
         return jsonify({"status": "ok"})
 
     except Exception as e:
+        task["status"] = "done"
         log.exception("Confirm failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
     finally:
