@@ -129,10 +129,10 @@ src/
 - [x] run tests — must pass before next task
 
 ### Task 7: Extract genre routes (genres blueprint)
-- [ ] create `src/routes/genres.py` — blueprint with genre fetch/confirm/save endpoints
-- [ ] register genres blueprint in app factory
-- [ ] write tests for genre endpoints in `tests/test_genres.py`
-- [ ] run tests — must pass before next task
+- [x] create `src/routes/genres.py` — blueprint with genre fetch/confirm/save endpoints
+- [x] register genres blueprint in app factory
+- [x] write tests for genre endpoints in `tests/test_genres.py`
+- [x] run tests — must pass before next task
 
 ### Task 8: Extract identification routes (identify blueprint)
 - [ ] create `src/routes/identify.py` — blueprint with identify/status/apply/confirm endpoints
