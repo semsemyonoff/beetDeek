@@ -156,7 +156,7 @@ class TestApplyMatch:
 
         mock_match = mocker.MagicMock()
         mock_match.info = mock_info
-        mock_match.merged_pairs = []
+        mock_match.mapping = {}
 
         state.identify_tasks["album_1"] = {
             "status": "done",

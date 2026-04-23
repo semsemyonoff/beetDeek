@@ -222,11 +222,11 @@ def apply_match(album_id):
     info = album_match.info
 
     track_diffs = []
-    for item, new_data in album_match.merged_pairs:
+    for item, track_info in album_match.mapping.items():
         diff_entry = {"track": item.track}
         for field in ["title", "artist"]:
             old_val = getattr(item, field, "") or ""
-            new_val = new_data.get(field, old_val) or ""
+            new_val = getattr(track_info, field, old_val) or ""
             diff_entry[field] = {"old": str(old_val), "new": str(new_val)}
         track_diffs.append(diff_entry)
     track_diffs.sort(key=lambda t: t["track"])
