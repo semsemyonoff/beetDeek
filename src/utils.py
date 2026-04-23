@@ -236,10 +236,9 @@ def _init_beets(library_db):
     import beets.library
     from beets import plugins
 
-    beets.config.read(user=True, defaults=True)
-
     with _beets_init_lock:
         if not _beets_initialized:
+            beets.config.read(user=True, defaults=True)
             plugins.load_plugins()
             plugins.send("pluginload")
             _beets_initialized = True

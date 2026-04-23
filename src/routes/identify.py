@@ -233,8 +233,10 @@ def apply_match(album_id):
 
     try:
         conn = _get_ro_conn()
-        a = conn.execute("SELECT * FROM albums WHERE id = ?", (album_id,)).fetchone()
-        conn.close()
+        try:
+            a = conn.execute("SELECT * FROM albums WHERE id = ?", (album_id,)).fetchone()
+        finally:
+            conn.close()
     except sqlite3.OperationalError as e:
         return jsonify({"error": str(e)}), 500
 
