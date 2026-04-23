@@ -212,3 +212,36 @@ class TestArtistEndpoint:
         data = resp.get_json()
         assert len(data["albums"]) == 1
         assert data["albums"][0]["album"] == "X Album"
+
+    def test_unknown_artist_matches_null_albumartist(self, client, db_path):
+        insert_album(db_path, albumartist=None, album="Null Artist Album")
+        resp = client.get("/api/artist?name=Unknown+Artist")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["artist"] == "Unknown Artist"
+        assert len(data["albums"]) == 1
+        assert data["albums"][0]["album"] == "Null Artist Album"
+
+    def test_unknown_artist_matches_empty_string_albumartist(self, client, db_path):
+        insert_album(db_path, albumartist="", album="Empty Artist Album")
+        resp = client.get("/api/artist?name=Unknown+Artist")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["artist"] == "Unknown Artist"
+        assert len(data["albums"]) == 1
+        assert data["albums"][0]["album"] == "Empty Artist Album"
+
+    def test_unknown_artist_matches_both_null_and_empty(self, client, db_path):
+        insert_album(db_path, albumartist=None, album="Null Album")
+        insert_album(db_path, albumartist="", album="Empty Album")
+        resp = client.get("/api/artist?name=Unknown+Artist")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert len(data["albums"]) == 2
+
+    def test_normal_artist_not_matched_by_unknown_artist_query(self, client, db_path):
+        insert_album(db_path, albumartist="Real Artist", album="Real Album")
+        resp = client.get("/api/artist?name=Unknown+Artist")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["albums"] == []

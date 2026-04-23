@@ -178,18 +178,31 @@ def artist_detail():
     try:
         conn = _get_ro_conn()
         try:
-            rows = conn.execute(
+            if name == "Unknown Artist":
+                rows = conn.execute(
+                    """
+                SELECT a.id, a.album, a.albumartist, a.original_year, a.year,
+                       a.artpath,
+                       (SELECT value FROM album_attributes
+                        WHERE entity_id = a.id AND key = 'beetdeck_tagged') AS tagged
+                FROM albums a
+                WHERE (a.albumartist IS NULL OR a.albumartist = '')
+                ORDER BY a.original_year, a.year, a.album
                 """
-            SELECT a.id, a.album, a.albumartist, a.original_year, a.year,
-                   a.artpath,
-                   (SELECT value FROM album_attributes
-                    WHERE entity_id = a.id AND key = 'beetdeck_tagged') AS tagged
-            FROM albums a
-            WHERE a.albumartist = ?
-            ORDER BY a.original_year, a.year, a.album
-            """,
-                (name,),
-            ).fetchall()
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                SELECT a.id, a.album, a.albumartist, a.original_year, a.year,
+                       a.artpath,
+                       (SELECT value FROM album_attributes
+                        WHERE entity_id = a.id AND key = 'beetdeck_tagged') AS tagged
+                FROM albums a
+                WHERE a.albumartist = ?
+                ORDER BY a.original_year, a.year, a.album
+                """,
+                    (name,),
+                ).fetchall()
 
             item_dirs = {}
             if rows:

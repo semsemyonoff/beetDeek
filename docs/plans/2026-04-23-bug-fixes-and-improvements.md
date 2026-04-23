@@ -39,10 +39,10 @@
 - [x] run tests — must pass before next task
 
 ### Task 2: Bug fix — Unknown artist navigation
-- [ ] **Root cause**: `/api/library` maps `NULL`/empty `albumartist` to `"Unknown Artist"` display string (utils or library route), but `/api/artist` queries `WHERE a.albumartist = ?` which can't match NULL/empty values when passed `"Unknown Artist"`
-- [ ] fix: in `src/routes/library.py`, update the `/api/artist` handler to detect `name == "Unknown Artist"` and use `WHERE (a.albumartist IS NULL OR a.albumartist = '')` instead
-- [ ] write tests for unknown artist query: NULL albumartist, empty string albumartist, normal artist with real name
-- [ ] run tests — must pass before next task
+- [x] **Root cause**: `/api/library` maps `NULL`/empty `albumartist` to `"Unknown Artist"` display string (utils or library route), but `/api/artist` queries `WHERE a.albumartist = ?` which can't match NULL/empty values when passed `"Unknown Artist"`
+- [x] fix: in `src/routes/library.py`, update the `/api/artist` handler to detect `name == "Unknown Artist"` and use `WHERE (a.albumartist IS NULL OR a.albumartist = '')` instead
+- [x] write tests for unknown artist query: NULL albumartist, empty string albumartist, normal artist with real name
+- [x] run tests — must pass before next task
 
 ### Task 3: Unknown artist management UI (new feature)
 - [ ] **Design subtask — album creation from loose items**: Before implementing, resolve these design questions:
