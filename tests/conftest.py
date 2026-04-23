@@ -1,11 +1,9 @@
-"""Shared test fixtures for beetDeek tests.
-
-This conftest.py provides DB-level fixtures only.
-Flask app fixtures are added in Task 3 once create_app() exists.
-"""
+"""Shared test fixtures for beetDeek tests."""
 import sqlite3
 
-import pytest  # noqa: F401
+import pytest
+
+from src import create_app
 
 BEETS_SCHEMA_DDL = """
 CREATE TABLE IF NOT EXISTS albums (
@@ -163,3 +161,22 @@ def db_path(tmp_path):
     path = tmp_path / "library.db"
     seed_db(str(path))
     return str(path)
+
+
+@pytest.fixture()
+def app(db_path):
+    """Flask test app with a temporary library DB."""
+    application = create_app(
+        test_config={
+            "LIBRARY_DB": db_path,
+            "IMPORT_DIR": "/tmp/music_import",
+            "TESTING": True,
+        }
+    )
+    return application
+
+
+@pytest.fixture()
+def client(app):
+    """Flask test client."""
+    return app.test_client()

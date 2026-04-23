@@ -86,10 +86,10 @@ src/
 - [x] run `make test` — must pass before next task
 
 ### Task 3: Create src/ package with app factory and shared modules
-- [ ] create `src/__init__.py` with `create_app(test_config=None)` factory function that accepts optional config dict for overriding `LIBRARY_DB`, `IMPORT_DIR`, and other settings (enables test fixtures to inject temporary DB file paths without monkeypatching module-level constants)
-- [ ] move `LIBRARY_DB`, `IMPORT_DIR` from module-level env reads into `app.config` defaults inside `create_app()`, so all route modules read from `current_app.config` instead of global constants
-- [ ] create `src/state.py` — extract the actual globals: `_rescan_lock`, `_rescan_proc`, `_rescan_snapshot`, `_identify_tasks`, `_identify_lock` (note: cover previews are stored in `_identify_tasks` under `f"cover_{album_id}"` keys — preserve this, do not create a separate `cover_previews` dict)
-- [ ] create `src/utils.py` — extract shared helpers used across multiple route groups:
+- [x] create `src/__init__.py` with `create_app(test_config=None)` factory function that accepts optional config dict for overriding `LIBRARY_DB`, `IMPORT_DIR`, and other settings (enables test fixtures to inject temporary DB file paths without monkeypatching module-level constants)
+- [x] move `LIBRARY_DB`, `IMPORT_DIR` from module-level env reads into `app.config` defaults inside `create_app()`, so all route modules read from `current_app.config` instead of global constants
+- [x] create `src/state.py` — extract the actual globals: `_rescan_lock`, `_rescan_proc`, `_rescan_snapshot`, `_identify_tasks`, `_identify_lock` (note: cover previews are stored in `_identify_tasks` under `f"cover_{album_id}"` keys — preserve this, do not create a separate `cover_previews` dict)
+- [x] create `src/utils.py` — extract shared helpers used across multiple route groups:
   - **Cross-cutting** (used by 3+ blueprints): `_decode_path()`, `_get_ro_conn()`, `_find_cover()`, `_album_dir_from_items()`, `_init_beets()`, `COVER_NAMES`, `ULOWER` registration
   - **Multi-route helpers**: `_format_genre()` (library, albums, genres), `_remove_cover_files()` (cover), `_resize_image()` (cover), `_save_cover_to_album()` (cover)
   - **Constants and module-level state these helpers depend on** (must move with them):
@@ -103,11 +103,11 @@ src/
   - **Scan-specific** (keep in `src/routes/scan.py`): `_take_snapshot()`, `_compute_scan_diff()`
   - Update `_get_ro_conn()` to read DB path from `current_app.config["LIBRARY_DB"]`
   - Update `_init_beets()` to accept an explicit `library_db` parameter (`_init_beets(library_db)`) instead of reading from `current_app.config` — this is required because `_run_identify()` calls `_init_beets()` from a background thread that has no Flask app context (`current_app` would raise `RuntimeError`). Callers in request handlers pass `current_app.config["LIBRARY_DB"]`; the background thread receives the path as an argument when spawned
-- [ ] create `src/routes/__init__.py`
-- [ ] update `tests/conftest.py` app fixture to use `create_app(test_config={"LIBRARY_DB": "<tmp_file_path>", ...})` with a `tmp_path`-based SQLite file seeded with beets schema
-- [ ] verify app factory can create a minimal Flask app with both default and test configs
-- [ ] write tests for utility functions in `tests/test_utils.py`
-- [ ] run tests — must pass before next task
+- [x] create `src/routes/__init__.py`
+- [x] update `tests/conftest.py` app fixture to use `create_app(test_config={"LIBRARY_DB": "<tmp_file_path>", ...})` with a `tmp_path`-based SQLite file seeded with beets schema
+- [x] verify app factory can create a minimal Flask app with both default and test configs
+- [x] write tests for utility functions in `tests/test_utils.py`
+- [x] run tests — must pass before next task
 
 ### Task 4: Extract library routes (library blueprint)
 - [ ] create `src/routes/library.py` — blueprint with `GET /`, `GET /api/library`, `GET /api/search`, `GET /api/artist`
