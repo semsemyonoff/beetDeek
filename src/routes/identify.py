@@ -68,6 +68,7 @@ def _run_identify(task_id, album_id, search_artist, search_album, search_id, lib
     have no Flask app context (current_app would raise RuntimeError).
     """
     task = state.identify_tasks[task_id]
+    lib = None
     try:
         from beets import autotag
 
@@ -120,9 +121,6 @@ def _run_identify(task_id, album_id, search_artist, search_album, search_id, lib
         matches = list(proposal.candidates[:5])
         matches.sort(key=lambda m: float(m.distance))
 
-        task["_matches"] = matches
-        task["_lib"] = lib
-
         candidates = [_serialize_candidate(i, m) for i, m in enumerate(matches)]
 
         for c in candidates:
@@ -135,6 +133,12 @@ def _run_identify(task_id, album_id, search_artist, search_album, search_id, lib
             )
 
         log.info("Identify done for album_id=%d: %d candidates", album_id, len(candidates))
+
+        # Transfer ownership of lib to task so confirm_match can reuse it.
+        # Set lib=None to prevent the finally block from closing it.
+        task["_matches"] = matches
+        task["_lib"] = lib
+        lib = None
         task["candidates"] = candidates
         task["status"] = "done"
 
@@ -142,6 +146,9 @@ def _run_identify(task_id, album_id, search_artist, search_album, search_id, lib
         log.exception("Identify error for album_id=%d", album_id)
         task["status"] = "error"
         task["error"] = str(e)
+    finally:
+        if lib is not None:
+            lib._close()
 
 
 # ---------------------------------------------------------------------------
@@ -272,8 +279,9 @@ def confirm_match(album_id):
 
     album_match = matches[candidate_index]
 
+    lib = task.get("_lib") or _init_beets(current_app.config["LIBRARY_DB"])
+    task.pop("_lib", None)
     try:
-        lib = task.get("_lib") or _init_beets(current_app.config["LIBRARY_DB"])
         album = lib.get_album(album_id)
         if not album:
             return jsonify({"error": "Album not found"}), 404
@@ -302,10 +310,10 @@ def confirm_match(album_id):
         log.info("Album %d tagged successfully", album_id)
 
         task.pop("_matches", None)
-        task.pop("_lib", None)
+        return jsonify({"status": "ok"})
 
     except Exception as e:
         log.exception("Confirm failed for album_id=%d", album_id)
         return jsonify({"error": str(e)}), 500
-
-    return jsonify({"status": "ok"})
+    finally:
+        lib._close()

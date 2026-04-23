@@ -77,10 +77,11 @@ def fetch_cover(album_id):
 
         # Store candidate path temporarily for confirm step
         # Cover previews share the identify_tasks dict with "cover_" prefix keys
-        state.identify_tasks[f"cover_{album_id}"] = {
-            "candidate_path": _decode_path(candidate.path),
-            "source": getattr(candidate, "source_name", "unknown"),
-        }
+        with state.identify_lock:
+            state.identify_tasks[f"cover_{album_id}"] = {
+                "candidate_path": _decode_path(candidate.path),
+                "source": getattr(candidate, "source_name", "unknown"),
+            }
 
         log.info(
             "Cover art found for album_id=%d from %s: %s",
@@ -109,7 +110,8 @@ def fetch_cover(album_id):
 @bp.route("/api/album/<int:album_id>/cover/preview")
 def cover_preview(album_id):
     """Serve the fetched cover art candidate for preview."""
-    task = state.identify_tasks.get(f"cover_{album_id}")
+    with state.identify_lock:
+        task = state.identify_tasks.get(f"cover_{album_id}")
     if not task or not task.get("candidate_path"):
         return "", 404
     path = task["candidate_path"]
@@ -121,7 +123,8 @@ def cover_preview(album_id):
 @bp.route("/api/album/<int:album_id>/cover/confirm", methods=["POST"])
 def confirm_cover(album_id):
     """Save fetched cover to album directory and embed into files."""
-    task = state.identify_tasks.pop(f"cover_{album_id}", None)
+    with state.identify_lock:
+        task = state.identify_tasks.pop(f"cover_{album_id}", None)
     if not task or not task.get("candidate_path"):
         return jsonify({"error": "No cover art to confirm"}), 400
 

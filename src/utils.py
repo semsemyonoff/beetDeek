@@ -5,6 +5,7 @@ import os
 import re
 import sqlite3
 import sys
+import threading
 
 from flask import current_app
 
@@ -56,6 +57,7 @@ COVER_EMBED_QUALITY = 70
 # Beets initialization state
 # ---------------------------------------------------------------------------
 _beets_initialized = False
+_beets_init_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -236,12 +238,13 @@ def _init_beets(library_db):
 
     beets.config.read(user=True, defaults=True)
 
-    if not _beets_initialized:
-        plugins.load_plugins()
-        plugins.send("pluginload")
-        _beets_initialized = True
+    with _beets_init_lock:
+        if not _beets_initialized:
+            plugins.load_plugins()
+            plugins.send("pluginload")
+            _beets_initialized = True
 
-        beets_log = logging.getLogger("beets")
-        beets_log.setLevel(logging.DEBUG)
+            beets_log = logging.getLogger("beets")
+            beets_log.setLevel(logging.DEBUG)
 
     return beets.library.Library(library_db)
