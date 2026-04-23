@@ -300,7 +300,7 @@ def confirm_match(album_id):
         album_match.apply_metadata()
         for item in album_match.mapping.keys():
             item.store()
-            item.write()
+            item.try_write()
             log.info("Wrote tags for track %d: %s", item.track, item.title)
 
         album_match.apply_album_metadata(album)

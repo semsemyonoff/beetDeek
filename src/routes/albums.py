@@ -29,32 +29,33 @@ def _fmt_length(seconds):
 def album_detail(album_id):
     try:
         conn = _get_ro_conn()
-        a = conn.execute(
-            """
-            SELECT a.*,
-                   (SELECT value FROM album_attributes
-                    WHERE entity_id = a.id AND key = 'beetdeck_tagged') AS tagged
-            FROM albums a WHERE a.id = ?
-            """,
-            (album_id,),
-        ).fetchone()
-        if not a:
+        try:
+            a = conn.execute(
+                """
+                SELECT a.*,
+                       (SELECT value FROM album_attributes
+                        WHERE entity_id = a.id AND key = 'beetdeck_tagged') AS tagged
+                FROM albums a WHERE a.id = ?
+                """,
+                (album_id,),
+            ).fetchone()
+            if not a:
+                return jsonify({"error": "Album not found"}), 404
+
+            items = conn.execute(
+                """
+                SELECT id, title, artist, track, disc, length, format, bitrate,
+                       samplerate, path
+                FROM items WHERE album_id = ? ORDER BY disc, track
+                """,
+                (album_id,),
+            ).fetchall()
+
+            album_dir = _album_dir_from_items(conn, album_id)
+            artpath = _resolve_path(a["artpath"]) if a["artpath"] else None
+            has_cover = bool(artpath and os.path.isfile(artpath)) or bool(_find_cover(album_dir))
+        finally:
             conn.close()
-            return jsonify({"error": "Album not found"}), 404
-
-        items = conn.execute(
-            """
-            SELECT id, title, artist, track, disc, length, format, bitrate,
-                   samplerate, path
-            FROM items WHERE album_id = ? ORDER BY disc, track
-            """,
-            (album_id,),
-        ).fetchall()
-
-        album_dir = _album_dir_from_items(conn, album_id)
-        artpath = _resolve_path(a["artpath"]) if a["artpath"] else None
-        has_cover = bool(artpath and os.path.isfile(artpath)) or bool(_find_cover(album_dir))
-        conn.close()
     except sqlite3.OperationalError as e:
         return jsonify({"error": str(e)}), 500
 
@@ -104,17 +105,18 @@ def album_detail(album_id):
 def track_tags(album_id, item_id):
     try:
         conn = _get_ro_conn()
-        row = conn.execute(
-            "SELECT * FROM items WHERE id = ? AND album_id = ?", (item_id, album_id)
-        ).fetchone()
-        if not row:
-            conn.close()
-            return jsonify({"error": "Track not found"}), 404
+        try:
+            row = conn.execute(
+                "SELECT * FROM items WHERE id = ? AND album_id = ?", (item_id, album_id)
+            ).fetchone()
+            if not row:
+                return jsonify({"error": "Track not found"}), 404
 
-        attrs = conn.execute(
-            "SELECT key, value FROM item_attributes WHERE entity_id = ?", (item_id,)
-        ).fetchall()
-        conn.close()
+            attrs = conn.execute(
+                "SELECT key, value FROM item_attributes WHERE entity_id = ?", (item_id,)
+            ).fetchall()
+        finally:
+            conn.close()
     except sqlite3.OperationalError as e:
         return jsonify({"error": str(e)}), 500
 

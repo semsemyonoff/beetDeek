@@ -182,10 +182,12 @@ def _save_cover_to_album(album, src_path):
     _remove_cover_files(album_dir)
 
     hires_path = _resize_image(src_path, COVER_HIRES_MAX, quality=95)
-    album.set_art(hires_path, False)
-    album.store()
-    if os.path.exists(hires_path):
-        os.unlink(hires_path)
+    try:
+        album.set_art(hires_path, False)
+        album.store()
+    finally:
+        if os.path.exists(hires_path):
+            os.unlink(hires_path)
 
     art.embed_album(_beets_log, album, maxwidth=COVER_EMBED_MAX, quality=COVER_EMBED_QUALITY)
 

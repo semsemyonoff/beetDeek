@@ -24,9 +24,11 @@ bp = Blueprint("cover", __name__)
 def album_cover(album_id):
     try:
         conn = _get_ro_conn()
-        a = conn.execute("SELECT artpath FROM albums WHERE id = ?", (album_id,)).fetchone()
-        album_dir = _album_dir_from_items(conn, album_id)
-        conn.close()
+        try:
+            a = conn.execute("SELECT artpath FROM albums WHERE id = ?", (album_id,)).fetchone()
+            album_dir = _album_dir_from_items(conn, album_id)
+        finally:
+            conn.close()
     except sqlite3.OperationalError:
         return "", 404
 

@@ -1,10 +1,17 @@
 """Genre routes blueprint."""
 
+import threading
+
 from flask import Blueprint, current_app, jsonify, request
 
 from src.utils import _format_genre, _init_beets, log
 
 bp = Blueprint("genres", __name__)
+
+# Serialize concurrent lastgenre preview calls: the beets lastgenre plugin
+# stores pretend state as a singleton config key, so concurrent requests would
+# corrupt each other's pretend flag without mutual exclusion.
+_genre_plugin_lock = threading.Lock()
 
 
 @bp.route("/api/album/<int:album_id>/genre", methods=["POST"])
@@ -38,15 +45,20 @@ def fetch_genre_preview(album_id):
             album.album,
         )
 
-        # Fetch without writing (pretend mode); restore old value unconditionally
-        lastgenre.config["pretend"].set(True)
-        try:
-            lastgenre._process(album, write=False)
-            new_genre = album.get("genres", "") or ""
-        finally:
-            lastgenre.config["pretend"].set(False)
-            album.genres = old_genre
-            album.store()
+        # Fetch without writing (pretend mode); restore old value unconditionally.
+        # Hold _genre_plugin_lock for the entire sequence: lastgenre.config is a
+        # singleton, and concurrent preview requests would otherwise race on the
+        # pretend flag (thread A sets True, thread B sets False, thread A runs
+        # _process with pretend=False and actually writes the genre).
+        with _genre_plugin_lock:
+            lastgenre.config["pretend"].set(True)
+            try:
+                lastgenre._process(album, write=False)
+                new_genre = album.get("genres", "") or ""
+            finally:
+                lastgenre.config["pretend"].set(False)
+                album.genres = old_genre
+                album.store()
 
         log.info("Genre preview for album_id=%d: %r -> %r", album_id, old_genre, new_genre)
 

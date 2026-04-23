@@ -56,6 +56,8 @@ def _compute_scan_diff(before, after):
 @bp.route("/api/rescan", methods=["POST"])
 def rescan():
     mode = request.args.get("mode", "quick")
+    if mode not in {"quick", "full"}:
+        return jsonify({"error": f"Invalid mode: {mode!r}. Must be 'quick' or 'full'"}), 400
     import_dir = current_app.config["IMPORT_DIR"]
     with state.rescan_lock:
         if state.rescan_proc and state.rescan_proc.poll() is None:
@@ -82,10 +84,15 @@ def rescan_status():
         return jsonify({"status": "idle"})
     if proc.poll() is None:
         return jsonify({"status": "running"})
+    # Process finished: compute diff, then clear state so future polls return
+    # "idle" and repeated calls don't re-query the entire DB each time.
     result = {"status": "done", "returncode": proc.returncode}
     if snapshot is not None:
         after = _take_snapshot()
         added, removed = _compute_scan_diff(snapshot, after)
         result["added"] = added
         result["removed"] = removed
+    with state.rescan_lock:
+        state.rescan_proc = None
+        state.rescan_snapshot = None
     return jsonify(result)

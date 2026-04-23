@@ -247,7 +247,7 @@ class TestConfirmMatch:
 
         mock_match.apply_metadata.assert_called_once()
         mock_item.store.assert_called()
-        mock_item.write.assert_called_once()
+        mock_item.try_write.assert_called_once()
         mock_match.apply_album_metadata.assert_called_once_with(mock_album)
         mock_album.store.assert_called()
 
