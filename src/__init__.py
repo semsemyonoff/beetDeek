@@ -29,7 +29,9 @@ def create_app(test_config=None):
         app.config.update(test_config)
 
     from .routes.library import bp as library_bp
+    from .routes.albums import bp as albums_bp
 
     app.register_blueprint(library_bp)
+    app.register_blueprint(albums_bp)
 
     return app

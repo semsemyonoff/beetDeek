@@ -1,0 +1,152 @@
+"""Album and track-tag routes."""
+import os
+import sqlite3
+
+from flask import Blueprint, jsonify
+
+from src.utils import (
+    _album_dir_from_items,
+    _decode_path,
+    _find_cover,
+    _format_genre,
+    _get_ro_conn,
+)
+
+bp = Blueprint("albums", __name__)
+
+
+def _find_lrc_file(item_path):
+    """Find a .lrc file next to the audio file.
+
+    NOTE: This helper will be imported from src.routes.lyrics once that
+    blueprint is extracted in Task 9.
+    """
+    if not item_path:
+        return None
+    base = os.path.splitext(item_path)[0]
+    lrc = base + ".lrc"
+    if os.path.isfile(lrc):
+        return lrc
+    return None
+
+
+def _fmt_length(seconds):
+    if not seconds:
+        return ""
+    m, sec = divmod(int(seconds), 60)
+    return f"{m}:{sec:02d}"
+
+
+@bp.route("/api/album/<int:album_id>")
+def album_detail(album_id):
+    try:
+        conn = _get_ro_conn()
+        a = conn.execute(
+            """
+            SELECT a.*,
+                   (SELECT value FROM album_attributes
+                    WHERE entity_id = a.id AND key = 'beetdeck_tagged') AS tagged
+            FROM albums a WHERE a.id = ?
+            """,
+            (album_id,),
+        ).fetchone()
+        if not a:
+            conn.close()
+            return jsonify({"error": "Album not found"}), 404
+
+        items = conn.execute(
+            """
+            SELECT id, title, artist, track, disc, length, format, bitrate,
+                   samplerate, path
+            FROM items WHERE album_id = ? ORDER BY disc, track
+            """,
+            (album_id,),
+        ).fetchall()
+
+        album_dir = _album_dir_from_items(conn, album_id)
+        artpath = _decode_path(a["artpath"]) if a["artpath"] else None
+        has_cover = bool(artpath and os.path.isfile(artpath)) or bool(
+            _find_cover(album_dir)
+        )
+        conn.close()
+    except sqlite3.OperationalError as e:
+        return jsonify({"error": str(e)}), 500
+
+    tracks = []
+    for it in items:
+        item_path = _decode_path(it["path"]) if it["path"] else None
+        tracks.append(
+            {
+                "id": it["id"],
+                "title": it["title"],
+                "artist": it["artist"],
+                "track": it["track"],
+                "disc": it["disc"],
+                "length": _fmt_length(it["length"]),
+                "format": it["format"],
+                "bitrate": it["bitrate"],
+                "samplerate": it["samplerate"],
+                "has_lrc": bool(_find_lrc_file(item_path)),
+            }
+        )
+
+    genre = ""
+    if "genres" in a.keys():
+        genre = a["genres"] or ""
+    if not genre and "genre" in a.keys():
+        genre = a["genre"] or ""
+    genre = _format_genre(genre)
+
+    return jsonify(
+        {
+            "id": a["id"],
+            "album": a["album"],
+            "albumartist": a["albumartist"],
+            "year": a["original_year"] or a["year"] or None,
+            "genre": genre,
+            "label": a["label"] or "",
+            "mb_albumid": a["mb_albumid"] or "",
+            "path": album_dir or "",
+            "has_cover": has_cover,
+            "tagged": a["tagged"] == "1" if a["tagged"] else False,
+            "tracks": tracks,
+        }
+    )
+
+
+@bp.route("/api/album/<int:album_id>/track/<int:item_id>/tags")
+def track_tags(album_id, item_id):
+    try:
+        conn = _get_ro_conn()
+        row = conn.execute(
+            "SELECT * FROM items WHERE id = ? AND album_id = ?", (item_id, album_id)
+        ).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({"error": "Track not found"}), 404
+
+        attrs = conn.execute(
+            "SELECT key, value FROM item_attributes WHERE entity_id = ?", (item_id,)
+        ).fetchall()
+        conn.close()
+    except sqlite3.OperationalError as e:
+        return jsonify({"error": str(e)}), 500
+
+    skip = {"id", "album_id", "path"}
+    tags = {}
+    for key in row.keys():
+        if key in skip:
+            continue
+        val = row[key]
+        if isinstance(val, bytes):
+            val = _decode_path(val)
+        if val is not None and val != "" and val != 0 and val != 0.0:
+            tags[key] = val
+
+    for attr in attrs:
+        val = attr["value"]
+        if isinstance(val, bytes):
+            val = val.decode("utf-8", errors="replace")
+        tags[attr["key"]] = val
+
+    return jsonify(tags)

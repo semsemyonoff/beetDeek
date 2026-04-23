@@ -116,10 +116,10 @@ src/
 - [x] run tests — must pass before next task
 
 ### Task 5: Extract album and track routes (albums blueprint)
-- [ ] create `src/routes/albums.py` — blueprint with `GET /api/album/<id>`, `GET /api/album/<id>/track/<id>/tags`
-- [ ] register albums blueprint in app factory
-- [ ] write tests for album endpoints in `tests/test_albums.py`
-- [ ] run tests — must pass before next task
+- [x] create `src/routes/albums.py` — blueprint with `GET /api/album/<id>`, `GET /api/album/<id>/track/<id>/tags`
+- [x] register albums blueprint in app factory
+- [x] write tests for album endpoints in `tests/test_albums.py`
+- [x] run tests — must pass before next task
 
 ### Task 6: Extract cover art routes (cover blueprint)
 - [ ] create `src/routes/cover.py` — blueprint with all cover art endpoints (GET cover, POST fetch, GET preview, POST confirm, POST upload)
