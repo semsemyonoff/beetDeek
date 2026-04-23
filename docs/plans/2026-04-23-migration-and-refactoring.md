@@ -202,8 +202,8 @@ src/
 - [x] verify test coverage meets 80%+ standard (`make coverage`)
 
 ### Task 15: [Final] Update documentation
-- [ ] update CLAUDE.md with final modular structure, test commands, and conventions
-- [ ] update README.md if needed (new project structure, dev setup with tests, beets 2.10.0 requirement)
+- [x] update CLAUDE.md with final modular structure, test commands, and conventions
+- [x] update README.md if needed (new project structure, dev setup with tests, beets 2.10.0 requirement)
 
 ## Technical Details
 

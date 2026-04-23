@@ -1,6 +1,6 @@
 # beetDeck
 
-![logo](static/logo.svg)
+![logo](src/static/logo.svg)
 
 A web interface for managing a [beets](https://beets.io/) music library. beetDeck does not handle file importing — it enhances an existing library with identification (MusicBrainz autotag), genres (Last.fm), cover art, lyrics, and tag browsing.
 
@@ -76,6 +76,7 @@ Click **Rescan Library** → **Full Scan** in the UI to populate the beets datab
 | `BEETSDIR` | `/config/beets` | beets configuration directory |
 | `BEETS_LIBRARY_DB` | `/data/beets/library.db` | Path to beets SQLite database |
 | `BEETS_IMPORT_DIR` | `/music` | Music library root for rescan |
+| `BEETS_LIBRARY_ROOT` | auto-detected | beets library directory for resolving relative paths (auto-detected from beets config if unset) |
 
 ### Volumes
 
@@ -109,9 +110,28 @@ All plugins have `auto: no` — beetDeck triggers them on demand through the UI.
 
 ## Architecture
 
-- **Backend**: Flask + gunicorn (1 worker, 4 threads). Single worker is required because in-memory state (identification tasks, cover previews) must be shared across requests.
-- **Frontend**: vanilla JavaScript SPA with hash-based routing (`#` = library, `#artist/<name>` = artist page, `#album/<id>` = album page). No build tools or dependencies.
+- **Backend**: Flask + gunicorn (1 worker, 4 threads). Single worker is required because in-memory state (identification tasks, cover previews) must be shared across requests. Routes are organized as Flask Blueprints under `src/routes/`.
+- **Frontend**: vanilla JavaScript SPA with hash-based routing (`#` = library, `#artist/<name>` = artist page, `#album/<id>` = album page). No build tools or dependencies. JS is split into feature modules under `src/static/js/`.
 - **beets integration**: uses the beets Python API directly (not the CLI) for identification, genre lookup, cover art, and lyrics. The CLI is only used for `beet import` (rescan) and `beet update` (prune stale entries).
+- **beets version**: requires beets 2.10.0. Genres are stored as native list fields; library paths are stored relative to the database root and resolved at runtime.
+
+## Local development
+
+```bash
+# Install runtime + dev dependencies
+pip install -r requirements.txt -c constraints.txt
+pip install -r requirements-dev.txt
+
+# Run tests
+make test
+
+# Lint / format
+make lint
+make fmt
+
+# Coverage report
+make coverage
+```
 
 ## API reference
 
